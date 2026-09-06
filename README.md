@@ -22,6 +22,11 @@ client.
 
 ## Getting started
 
+**On Windows 11, start with [SETUP-WINDOWS.md](SETUP-WINDOWS.md).** It covers
+the prerequisites, the environment files, and — more usefully — an ordered list
+of what to verify first, because most of this repository was written on a
+machine that could not run it.
+
 ```bash
 bun install
 for d in apps/server apps/web apps/native packages/db packages/auth; do
