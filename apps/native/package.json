@@ -1,0 +1,46 @@
+{
+  "name": "@repo/native",
+  "version": "0.0.0",
+  "private": true,
+  "main": "expo-router/entry",
+  "scripts": {
+    "dev": "expo start",
+    "android": "expo start --android",
+    "ios": "expo start --ios",
+    "web": "expo start --web",
+    "prebuild": "expo prebuild",
+    "doctor": "expo-doctor",
+    "check-types": "tsc --noEmit",
+    "clean": "rm -rf .turbo .expo node_modules *.tsbuildinfo"
+  },
+  "dependencies": {
+    "@better-auth/expo": "catalog:native",
+    "@expo/env": "catalog:native",
+    "@repo/auth": "workspace:*",
+    "@repo/env": "workspace:*",
+    "@tanstack/react-form": "catalog:",
+    "better-auth": "catalog:auth",
+    "expo": "catalog:native",
+    "expo-constants": "catalog:native",
+    "expo-linking": "catalog:native",
+    "expo-network": "catalog:native",
+    "expo-router": "catalog:native",
+    "expo-secure-store": "catalog:native",
+    "expo-status-bar": "catalog:native",
+    "expo-system-ui": "catalog:native",
+    "expo-web-browser": "catalog:native",
+    "react": "catalog:",
+    "react-dom": "catalog:",
+    "react-native": "catalog:native",
+    "react-native-safe-area-context": "catalog:native",
+    "react-native-screens": "catalog:native",
+    "react-native-web": "catalog:native",
+    "zod": "catalog:",
+    "zustand": "catalog:"
+  },
+  "devDependencies": {
+    "@repo/config": "workspace:*",
+    "@types/react": "catalog:",
+    "typescript": "catalog:"
+  }
+}

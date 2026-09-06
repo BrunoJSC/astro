@@ -1,0 +1,10 @@
+{
+  "$schema": "../../node_modules/@biomejs/biome/configuration_schema.json",
+  // React Native is React: the hook-correctness rules apply here exactly as on
+  // the web. The Next preset does not -- its rules are about the App Router.
+  "root": false,
+  "extends": ["../../biome.jsonc", "ultracite/biome/react"],
+  // A nested `includes` replaces the inherited one rather than merging with
+  // it, so without this the whole app silently stops being linted.
+  "files": { "includes": ["**", "!**/.expo", "!**/expo-env.d.ts"] }
+}
