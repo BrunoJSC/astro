@@ -1,12 +1,16 @@
 import { relations } from "drizzle-orm";
 import { account } from "./accounts";
+import { attachments } from "./attachments";
 import { channelPermissionOverrides } from "./channel-overrides";
 import { channels } from "./channels";
+import { guildEmojis } from "./emojis";
 import { friends } from "./friends";
 import { guildMembers } from "./guild-members";
 import { guilds } from "./guilds";
 import { invites } from "./invites";
 import { memberRoles } from "./member-roles";
+import { messages } from "./messages";
+import { messageReactions } from "./reactions";
 import { roles } from "./roles";
 import { session } from "./sessions";
 import { user } from "./users";
@@ -28,6 +32,8 @@ export const userRelations = relations(user, ({ many }) => ({
   guildsOwned: many(guilds),
   invitesCreated: many(invites),
   memberships: many(guildMembers),
+  messages: many(messages),
+  reactions: many(messageReactions),
   sessions: many(session),
 }));
 
@@ -64,6 +70,7 @@ export const friendsRelations = relations(friends, ({ one }) => ({
 
 export const guildsRelations = relations(guilds, ({ many, one }) => ({
   channels: many(channels),
+  emojis: many(guildEmojis),
   invites: many(invites),
   members: many(guildMembers),
   owner: one(user, { fields: [guilds.ownerId], references: [user.id] }),
@@ -112,6 +119,7 @@ export const channelsRelations = relations(channels, ({ many, one }) => ({
   }),
   children: many(channels, { relationName: "channel_category" }),
   guild: one(guilds, { fields: [channels.guildId], references: [guilds.id] }),
+  messages: many(messages),
   overrides: many(channelPermissionOverrides),
 }));
 
@@ -129,3 +137,60 @@ export const channelOverridesRelations = relations(
     }),
   })
 );
+
+/**
+ * `replyTo` and `replies` are the two directions of the self-reference and
+ * share a `relationName`, which is how Drizzle pairs them.
+ */
+export const messagesRelations = relations(messages, ({ many, one }) => ({
+  attachments: many(attachments),
+  author: one(user, { fields: [messages.authorId], references: [user.id] }),
+  channel: one(channels, {
+    fields: [messages.channelId],
+    references: [channels.id],
+  }),
+  reactions: many(messageReactions),
+  replies: many(messages, { relationName: "message_reply" }),
+  replyTo: one(messages, {
+    fields: [messages.replyToId],
+    references: [messages.id],
+    relationName: "message_reply",
+  }),
+}));
+
+export const attachmentsRelations = relations(attachments, ({ one }) => ({
+  message: one(messages, {
+    fields: [attachments.messageId],
+    references: [messages.id],
+  }),
+}));
+
+export const messageReactionsRelations = relations(
+  messageReactions,
+  ({ one }) => ({
+    customEmoji: one(guildEmojis, {
+      fields: [messageReactions.customEmojiId],
+      references: [guildEmojis.id],
+    }),
+    message: one(messages, {
+      fields: [messageReactions.messageId],
+      references: [messages.id],
+    }),
+    user: one(user, {
+      fields: [messageReactions.userId],
+      references: [user.id],
+    }),
+  })
+);
+
+export const guildEmojisRelations = relations(guildEmojis, ({ many, one }) => ({
+  creator: one(user, {
+    fields: [guildEmojis.createdBy],
+    references: [user.id],
+  }),
+  guild: one(guilds, {
+    fields: [guildEmojis.guildId],
+    references: [guilds.id],
+  }),
+  reactions: many(messageReactions),
+}));

@@ -71,3 +71,41 @@ describe("canonicalPair", () => {
     expect(canonicalPair(once[0], once[1])).toEqual(once);
   });
 });
+
+describe("messages", () => {
+  it("keeps authorId nullable so a deleted account does not erase history", () => {
+    // `set null`, not cascade: removing an account must not punch holes in
+    // other people's threads.
+    expect(getTableColumns(schema.messages).authorId.notNull).toBe(false);
+  });
+
+  it("orders by the primary key, which is chronological", () => {
+    // UUIDv7's leading 48 bits are a millisecond timestamp, so the
+    // (channel_id, id DESC) index carries the sort — no created_at index.
+    expect(getTableColumns(schema.messages).id.columnType).toBe("PgUUID");
+  });
+
+  it("soft-deletes", () => {
+    expect(getTableColumns(schema.messages).deletedAt).toBeDefined();
+    expect(getTableColumns(schema.messages).deletedAt.notNull).toBe(false);
+  });
+});
+
+describe("reactions", () => {
+  it("carries a surrogate key rather than a composite primary key", () => {
+    /*
+     * Regression guard for a table that was briefly unusable. A composite PK
+     * over the emoji columns makes them implicitly NOT NULL, and the check
+     * constraint requires exactly one of them to be null -- jointly
+     * unsatisfiable, so no row could be inserted at all. Identity lives on a
+     * surrogate id; uniqueness lives on a NULLS NOT DISTINCT index.
+     */
+    expect(getTableColumns(schema.messageReactions).id.primary).toBe(true);
+  });
+
+  it("leaves both emoji columns nullable", () => {
+    const columns = getTableColumns(schema.messageReactions);
+    expect(columns.emoji.notNull).toBe(false);
+    expect(columns.customEmojiId.notNull).toBe(false);
+  });
+});

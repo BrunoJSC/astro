@@ -1,5 +1,6 @@
 CREATE TYPE "public"."channel_type" AS ENUM('text', 'voice', 'category', 'dm', 'group_dm');--> statement-breakpoint
 CREATE TYPE "public"."friend_status" AS ENUM('pending', 'accepted', 'blocked');--> statement-breakpoint
+CREATE TYPE "public"."message_type" AS ENUM('default', 'reply', 'member_join', 'member_leave', 'pin', 'channel_rename');--> statement-breakpoint
 CREATE TYPE "public"."permission_target_type" AS ENUM('role', 'member');--> statement-breakpoint
 CREATE TABLE "account" (
 	"access_token" text,
@@ -16,6 +17,18 @@ CREATE TABLE "account" (
 	"scope" text,
 	"updated_at" timestamp with time zone NOT NULL,
 	"user_id" uuid NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "attachments" (
+	"id" uuid PRIMARY KEY DEFAULT uuidv7() NOT NULL,
+	"message_id" uuid NOT NULL,
+	"url" text NOT NULL,
+	"filename" text NOT NULL,
+	"content_type" text,
+	"size" bigint NOT NULL,
+	"width" integer,
+	"height" integer,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "channel_permission_overrides" (
@@ -38,6 +51,17 @@ CREATE TABLE "channels" (
 	"topic" text,
 	"type" "channel_type" NOT NULL,
 	"user_limit" integer
+);
+--> statement-breakpoint
+CREATE TABLE "guild_emojis" (
+	"id" uuid PRIMARY KEY DEFAULT uuidv7() NOT NULL,
+	"guild_id" uuid NOT NULL,
+	"name" text NOT NULL,
+	"url" text NOT NULL,
+	"animated" boolean DEFAULT false NOT NULL,
+	"created_by" uuid,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "guild_emojis_guild_id_name_key" UNIQUE("guild_id","name")
 );
 --> statement-breakpoint
 CREATE TABLE "friends" (
@@ -83,6 +107,30 @@ CREATE TABLE "member_roles" (
 	"role_id" uuid NOT NULL,
 	"user_id" uuid NOT NULL,
 	CONSTRAINT "member_roles_guild_id_user_id_role_id_pk" PRIMARY KEY("guild_id","user_id","role_id")
+);
+--> statement-breakpoint
+CREATE TABLE "messages" (
+	"id" uuid PRIMARY KEY DEFAULT uuidv7() NOT NULL,
+	"channel_id" uuid NOT NULL,
+	"author_id" uuid,
+	"content" text DEFAULT '' NOT NULL,
+	"type" "message_type" DEFAULT 'default' NOT NULL,
+	"reply_to_id" uuid,
+	"edited_at" timestamp with time zone,
+	"deleted_at" timestamp with time zone,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "messages_content_length" CHECK (length("messages"."content") <= 4000)
+);
+--> statement-breakpoint
+CREATE TABLE "message_reactions" (
+	"id" uuid PRIMARY KEY DEFAULT uuidv7() NOT NULL,
+	"message_id" uuid NOT NULL,
+	"user_id" uuid NOT NULL,
+	"emoji" text,
+	"custom_emoji_id" uuid,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "message_reactions_unique" UNIQUE NULLS NOT DISTINCT("message_id","user_id","emoji","custom_emoji_id"),
+	CONSTRAINT "message_reactions_one_emoji" CHECK (("message_reactions"."emoji" is null) <> ("message_reactions"."custom_emoji_id" is null))
 );
 --> statement-breakpoint
 CREATE TABLE "roles" (
@@ -134,9 +182,12 @@ CREATE TABLE "verification" (
 );
 --> statement-breakpoint
 ALTER TABLE "account" ADD CONSTRAINT "account_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "attachments" ADD CONSTRAINT "attachments_message_id_messages_id_fk" FOREIGN KEY ("message_id") REFERENCES "public"."messages"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "channel_permission_overrides" ADD CONSTRAINT "channel_permission_overrides_channel_id_channels_id_fk" FOREIGN KEY ("channel_id") REFERENCES "public"."channels"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "channels" ADD CONSTRAINT "channels_category_id_channels_id_fk" FOREIGN KEY ("category_id") REFERENCES "public"."channels"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "channels" ADD CONSTRAINT "channels_guild_id_guilds_id_fk" FOREIGN KEY ("guild_id") REFERENCES "public"."guilds"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "guild_emojis" ADD CONSTRAINT "guild_emojis_guild_id_guilds_id_fk" FOREIGN KEY ("guild_id") REFERENCES "public"."guilds"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "guild_emojis" ADD CONSTRAINT "guild_emojis_created_by_user_id_fk" FOREIGN KEY ("created_by") REFERENCES "public"."user"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "friends" ADD CONSTRAINT "friends_requester_id_user_id_fk" FOREIGN KEY ("requester_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "friends" ADD CONSTRAINT "friends_user_id_1_user_id_fk" FOREIGN KEY ("user_id_1") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "friends" ADD CONSTRAINT "friends_user_id_2_user_id_fk" FOREIGN KEY ("user_id_2") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
@@ -147,13 +198,21 @@ ALTER TABLE "invites" ADD CONSTRAINT "invites_guild_id_guilds_id_fk" FOREIGN KEY
 ALTER TABLE "invites" ADD CONSTRAINT "invites_inviter_id_user_id_fk" FOREIGN KEY ("inviter_id") REFERENCES "public"."user"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "member_roles" ADD CONSTRAINT "member_roles_role_id_roles_id_fk" FOREIGN KEY ("role_id") REFERENCES "public"."roles"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "member_roles" ADD CONSTRAINT "member_roles_member_fk" FOREIGN KEY ("guild_id","user_id") REFERENCES "public"."guild_members"("guild_id","user_id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "messages" ADD CONSTRAINT "messages_channel_id_channels_id_fk" FOREIGN KEY ("channel_id") REFERENCES "public"."channels"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "messages" ADD CONSTRAINT "messages_author_id_user_id_fk" FOREIGN KEY ("author_id") REFERENCES "public"."user"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "messages" ADD CONSTRAINT "messages_reply_to_id_messages_id_fk" FOREIGN KEY ("reply_to_id") REFERENCES "public"."messages"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "message_reactions" ADD CONSTRAINT "message_reactions_message_id_messages_id_fk" FOREIGN KEY ("message_id") REFERENCES "public"."messages"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "message_reactions" ADD CONSTRAINT "message_reactions_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "message_reactions" ADD CONSTRAINT "message_reactions_custom_emoji_id_guild_emojis_id_fk" FOREIGN KEY ("custom_emoji_id") REFERENCES "public"."guild_emojis"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "roles" ADD CONSTRAINT "roles_guild_id_guilds_id_fk" FOREIGN KEY ("guild_id") REFERENCES "public"."guilds"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "session" ADD CONSTRAINT "session_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 CREATE INDEX "account_userId_idx" ON "account" USING btree ("user_id");--> statement-breakpoint
 CREATE INDEX "account_provider_account_idx" ON "account" USING btree ("provider_id","account_id");--> statement-breakpoint
+CREATE INDEX "attachments_message_id_idx" ON "attachments" USING btree ("message_id");--> statement-breakpoint
 CREATE INDEX "channel_overrides_target_idx" ON "channel_permission_overrides" USING btree ("target_id","target_type");--> statement-breakpoint
 CREATE INDEX "channels_guild_id_position_idx" ON "channels" USING btree ("guild_id","position");--> statement-breakpoint
 CREATE INDEX "channels_category_id_idx" ON "channels" USING btree ("category_id");--> statement-breakpoint
+CREATE INDEX "guild_emojis_guild_id_idx" ON "guild_emojis" USING btree ("guild_id");--> statement-breakpoint
 CREATE INDEX "friends_user_id_2_idx" ON "friends" USING btree ("user_id_2","status");--> statement-breakpoint
 CREATE INDEX "friends_user_id_1_status_idx" ON "friends" USING btree ("user_id_1","status");--> statement-breakpoint
 CREATE INDEX "guild_members_user_id_idx" ON "guild_members" USING btree ("user_id");--> statement-breakpoint
@@ -161,6 +220,12 @@ CREATE INDEX "guilds_owner_id_idx" ON "guilds" USING btree ("owner_id");--> stat
 CREATE INDEX "invites_guild_id_idx" ON "invites" USING btree ("guild_id");--> statement-breakpoint
 CREATE INDEX "invites_expires_at_idx" ON "invites" USING btree ("expires_at");--> statement-breakpoint
 CREATE INDEX "member_roles_role_id_idx" ON "member_roles" USING btree ("role_id");--> statement-breakpoint
+CREATE INDEX "messages_channel_id_id_idx" ON "messages" USING btree ("channel_id","id" DESC NULLS LAST) WHERE "messages"."deleted_at" is null;--> statement-breakpoint
+CREATE INDEX "messages_author_id_idx" ON "messages" USING btree ("author_id");--> statement-breakpoint
+CREATE INDEX "messages_reply_to_id_idx" ON "messages" USING btree ("reply_to_id");--> statement-breakpoint
+CREATE INDEX "message_reactions_message_emoji_idx" ON "message_reactions" USING btree ("message_id","emoji","custom_emoji_id");--> statement-breakpoint
+CREATE INDEX "message_reactions_user_id_idx" ON "message_reactions" USING btree ("user_id");--> statement-breakpoint
+CREATE INDEX "message_reactions_custom_emoji_id_idx" ON "message_reactions" USING btree ("custom_emoji_id");--> statement-breakpoint
 CREATE INDEX "roles_guild_id_position_idx" ON "roles" USING btree ("guild_id","position");--> statement-breakpoint
 CREATE INDEX "session_userId_idx" ON "session" USING btree ("user_id");--> statement-breakpoint
 CREATE INDEX "verification_identifier_idx" ON "verification" USING btree ("identifier");--> statement-breakpoint

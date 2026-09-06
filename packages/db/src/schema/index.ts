@@ -8,14 +8,18 @@
  * Drizzle allows one `relations()` call per table.
  */
 export * from "./accounts";
+export * from "./attachments";
 export * from "./channel-overrides";
 export * from "./channels";
+export * from "./emojis";
 export * from "./enums";
 export * from "./friends";
 export * from "./guild-members";
 export * from "./guilds";
 export * from "./invites";
 export * from "./member-roles";
+export * from "./messages";
+export * from "./reactions";
 export * from "./relations";
 export * from "./roles";
 export * from "./sessions";
