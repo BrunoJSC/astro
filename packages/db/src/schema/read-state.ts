@@ -16,13 +16,20 @@ import { user } from "./users";
  * time anyone opens a channel, so it is written roughly as often as messages
  * are read. The row is kept narrow for that reason -- five columns, no text.
  *
- * `lastReadMessageId` carries NO foreign key, and that is deliberate. It is a
- * watermark, not a reference: unread means "messages exist in this channel with
- * `id > lastReadMessageId`", which UUIDv7 makes a plain range scan on the
- * `(channel_id, id DESC)` index. A foreign key with `set null` would be
- * actively harmful -- purging one message would reset the watermark and mark
- * the entire channel unread for that user. The id is a position in time and
- * stays meaningful after the row it names is gone.
+ * `lastReadMessageId` carries NO foreign key, and that turned out to matter
+ * more than originally intended: message history lives in ScyllaDB, so there is
+ * no Postgres row to point at even in principle. The column stores the Scylla
+ * `timeuuid` of the last read message.
+ *
+ * It is opaque to Postgres, and that is a real constraint. A timeuuid is
+ * UUIDv1, whose timestamp is laid out low-bits-first, so Postgres comparing two
+ * of them bytewise does NOT compare them chronologically. Never write
+ * `WHERE ... > last_read_message_id` here. The unread comparison belongs in
+ * Scylla, whose `timeuuid` type sorts by the embedded timestamp -- see
+ * `@repo/chat-db`.
+ *
+ * What Postgres still gives is the sidebar in one query: every channel a user
+ * has state for, with its badge count, without touching Scylla at all.
  */
 export const channelReadState = pgTable(
   "channel_read_state",

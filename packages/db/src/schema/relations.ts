@@ -1,6 +1,5 @@
 import { relations } from "drizzle-orm";
 import { account } from "./accounts";
-import { attachments } from "./attachments";
 import { channelPermissionOverrides } from "./channel-overrides";
 import { channels } from "./channels";
 import { guildEmojis } from "./emojis";
@@ -9,9 +8,6 @@ import { guildMembers } from "./guild-members";
 import { guilds } from "./guilds";
 import { invites } from "./invites";
 import { memberRoles } from "./member-roles";
-import { messageMentions, messageRoleMentions } from "./mentions";
-import { messages } from "./messages";
-import { messageReactions } from "./reactions";
 import { channelReadState } from "./read-state";
 import { roles } from "./roles";
 import { session } from "./sessions";
@@ -34,9 +30,6 @@ export const userRelations = relations(user, ({ many }) => ({
   guildsOwned: many(guilds),
   invitesCreated: many(invites),
   memberships: many(guildMembers),
-  mentions: many(messageMentions),
-  messages: many(messages),
-  reactions: many(messageReactions),
   readState: many(channelReadState),
   sessions: many(session),
 }));
@@ -101,7 +94,6 @@ export const invitesRelations = relations(invites, ({ one }) => ({
 export const rolesRelations = relations(roles, ({ many, one }) => ({
   guild: one(guilds, { fields: [roles.guildId], references: [guilds.id] }),
   members: many(memberRoles),
-  mentions: many(messageRoleMentions),
 }));
 
 export const memberRolesRelations = relations(memberRoles, ({ one }) => ({
@@ -124,7 +116,6 @@ export const channelsRelations = relations(channels, ({ many, one }) => ({
   }),
   children: many(channels, { relationName: "channel_category" }),
   guild: one(guilds, { fields: [channels.guildId], references: [guilds.id] }),
-  messages: many(messages),
   overrides: many(channelPermissionOverrides),
   readState: many(channelReadState),
 }));
@@ -148,50 +139,8 @@ export const channelOverridesRelations = relations(
  * `replyTo` and `replies` are the two directions of the self-reference and
  * share a `relationName`, which is how Drizzle pairs them.
  */
-export const messagesRelations = relations(messages, ({ many, one }) => ({
-  attachments: many(attachments),
-  author: one(user, { fields: [messages.authorId], references: [user.id] }),
-  channel: one(channels, {
-    fields: [messages.channelId],
-    references: [channels.id],
-  }),
-  mentions: many(messageMentions),
-  reactions: many(messageReactions),
-  replies: many(messages, { relationName: "message_reply" }),
-  replyTo: one(messages, {
-    fields: [messages.replyToId],
-    references: [messages.id],
-    relationName: "message_reply",
-  }),
-  roleMentions: many(messageRoleMentions),
-}));
 
-export const attachmentsRelations = relations(attachments, ({ one }) => ({
-  message: one(messages, {
-    fields: [attachments.messageId],
-    references: [messages.id],
-  }),
-}));
-
-export const messageReactionsRelations = relations(
-  messageReactions,
-  ({ one }) => ({
-    customEmoji: one(guildEmojis, {
-      fields: [messageReactions.customEmojiId],
-      references: [guildEmojis.id],
-    }),
-    message: one(messages, {
-      fields: [messageReactions.messageId],
-      references: [messages.id],
-    }),
-    user: one(user, {
-      fields: [messageReactions.userId],
-      references: [user.id],
-    }),
-  })
-);
-
-export const guildEmojisRelations = relations(guildEmojis, ({ many, one }) => ({
+export const guildEmojisRelations = relations(guildEmojis, ({ one }) => ({
   creator: one(user, {
     fields: [guildEmojis.createdBy],
     references: [user.id],
@@ -200,7 +149,6 @@ export const guildEmojisRelations = relations(guildEmojis, ({ many, one }) => ({
     fields: [guildEmojis.guildId],
     references: [guilds.id],
   }),
-  reactions: many(messageReactions),
 }));
 
 export const channelReadStateRelations = relations(
@@ -213,34 +161,6 @@ export const channelReadStateRelations = relations(
     user: one(user, {
       fields: [channelReadState.userId],
       references: [user.id],
-    }),
-  })
-);
-
-export const messageMentionsRelations = relations(
-  messageMentions,
-  ({ one }) => ({
-    message: one(messages, {
-      fields: [messageMentions.messageId],
-      references: [messages.id],
-    }),
-    user: one(user, {
-      fields: [messageMentions.userId],
-      references: [user.id],
-    }),
-  })
-);
-
-export const messageRoleMentionsRelations = relations(
-  messageRoleMentions,
-  ({ one }) => ({
-    message: one(messages, {
-      fields: [messageRoleMentions.messageId],
-      references: [messages.id],
-    }),
-    role: one(roles, {
-      fields: [messageRoleMentions.roleId],
-      references: [roles.id],
     }),
   })
 );

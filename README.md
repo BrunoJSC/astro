@@ -12,7 +12,8 @@ client.
 | `apps/server` | Elysia API on Bun, plugin/module architecture |
 | `apps/native` | Expo SDK 57, Expo Router |
 | `apps/desktop` | Tauri shell (not started) |
-| `packages/db` | Drizzle ORM on Neon, schema + TypeBox validation |
+| `packages/db` | Drizzle ORM on Neon: the relational graph |
+| `packages/chat-db` | ScyllaDB: message history, audit and moderation logs |
 | `packages/auth` | Better Auth: Argon2id, username plugin |
 | `packages/env` | T3 Env, validated per runtime |
 | `packages/ui` | Base UI primitives, shadcn-style variants |
@@ -61,6 +62,14 @@ indexes and the `account.issuer` column the CLI omits. Edit the codemod, not
 the schema files. `packages/db/src/schema/generated/` holds the CLI's verbatim
 output so an upgrade produces a reviewable diff, and a drift test fails when
 Better Auth changes a column.
+
+**Two datastores, split by shape.** Postgres holds the relational graph --
+users, guilds, members, roles, channels, permissions -- where foreign keys and
+transactions earn their cost. ScyllaDB holds the append-only streams: message
+history, audit and moderation logs, partitioned by time bucket. The seam is
+`channel_read_state.last_read_message_id`, which stores a Scylla `timeuuid` and
+is deliberately opaque to Postgres: UUIDv1 lays its timestamp out
+low-bits-first, so the unread comparison has to happen in Scylla.
 
 **Every pull request gets its own database.** `.github/workflows/preview-db.yml`
 creates a schema-only Neon branch, migrates it, and deletes it on close.

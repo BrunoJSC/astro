@@ -16,7 +16,6 @@ export * from "./accounts";
 export * from "./channels";
 export * from "./friends";
 export * from "./guilds";
-export * from "./messages";
 export * from "./roles";
 export * from "./sessions";
 export * from "./users";

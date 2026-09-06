@@ -15,6 +15,7 @@ describe("domain tables", () => {
       schema.memberRoles,
       schema.channels,
       schema.channelPermissionOverrides,
+      schema.channelReadState,
     ]) {
       expect(table).toBeDefined();
     }
@@ -73,71 +74,18 @@ describe("canonicalPair", () => {
   });
 });
 
-describe("messages", () => {
-  it("keeps authorId nullable so a deleted account does not erase history", () => {
-    // `set null`, not cascade: removing an account must not punch holes in
-    // other people's threads.
-    expect(getTableColumns(schema.messages).authorId.notNull).toBe(false);
-  });
-
-  it("orders by the primary key, which is chronological", () => {
-    // UUIDv7's leading 48 bits are a millisecond timestamp, so the
-    // (channel_id, id DESC) index carries the sort — no created_at index.
-    expect(getTableColumns(schema.messages).id.columnType).toBe("PgUUID");
-  });
-
-  it("soft-deletes", () => {
-    expect(getTableColumns(schema.messages).deletedAt).toBeDefined();
-    expect(getTableColumns(schema.messages).deletedAt.notNull).toBe(false);
-  });
-});
-
-describe("reactions", () => {
-  it("carries a surrogate key rather than a composite primary key", () => {
-    /*
-     * Regression guard for a table that was briefly unusable. A composite PK
-     * over the emoji columns makes them implicitly NOT NULL, and the check
-     * constraint requires exactly one of them to be null -- jointly
-     * unsatisfiable, so no row could be inserted at all. Identity lives on a
-     * surrogate id; uniqueness lives on a NULLS NOT DISTINCT index.
-     */
-    expect(getTableColumns(schema.messageReactions).id.primary).toBe(true);
-  });
-
-  it("leaves both emoji columns nullable", () => {
-    const columns = getTableColumns(schema.messageReactions);
-    expect(columns.emoji.notNull).toBe(false);
-    expect(columns.customEmojiId.notNull).toBe(false);
-  });
-});
-
-describe("read state and mentions", () => {
+describe("read state after the move to Scylla", () => {
   it("keeps lastReadMessageId free of a foreign key", () => {
     /*
-     * It is a watermark, not a reference. A foreign key with `set null` would
-     * reset the position when a single message is purged, marking the whole
-     * channel unread. UUIDv7 ordering keeps the value meaningful after the row
-     * it names is gone.
+     * There is no Postgres row to point at any more -- message history lives in
+     * ScyllaDB. The column stores a Scylla timeuuid, opaque to Postgres: UUIDv1
+     * lays its timestamp out low-bits-first, so a bytewise comparison here is
+     * not chronological. The unread comparison belongs in Scylla.
      */
-    const fks = getTableConfig(schema.channelReadState).foreignKeys;
-    const referenced = fks.flatMap((fk) =>
-      fk.reference().columns.map((c) => c.name)
-    );
+    const referenced = getTableConfig(
+      schema.channelReadState
+    ).foreignKeys.flatMap((fk) => fk.reference().columns.map((c) => c.name));
     expect(referenced).not.toContain("last_read_message_id");
-  });
-
-  it("stores role mentions unexpanded", () => {
-    // One row per member of a mentioned role would mean fifty thousand rows for
-    // one message, rewritten whenever membership changes.
-    const columns = Object.keys(
-      getTableColumns(schema.messageRoleMentions)
-    ).sort();
-    expect(columns).toEqual(["messageId", "roleId"]);
-  });
-
-  it("puts @everyone on the message, since it has no role to point at", () => {
-    expect(getTableColumns(schema.messages).mentionsEveryone.notNull).toBe(
-      true
-    );
+    expect(referenced.sort()).toEqual(["channel_id", "user_id"]);
   });
 });
