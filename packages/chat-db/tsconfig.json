@@ -1,0 +1,9 @@
+{
+  "extends": "@repo/config/base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "types": ["bun"]
+  },
+  "include": ["src", "tests"],
+  "exclude": ["node_modules", ".turbo"]
+}

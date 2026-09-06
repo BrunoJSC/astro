@@ -2,10 +2,18 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "dev",
-      "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev"],
-      "port": 3000
+      "name": "web",
+      "runtimeExecutable": "sh",
+      "runtimeArgs": ["-c", "cd apps/web && bun run dev"],
+      "port": 3000,
+      "autoPort": true
+    },
+    {
+      "name": "server",
+      "runtimeExecutable": "sh",
+      "runtimeArgs": ["-c", "cd apps/server && bun run dev"],
+      "port": 3001,
+      "autoPort": true
     }
   ]
 }

@@ -70,6 +70,20 @@
   },
   "overrides": [
     {
+      // The bucket walk is sequential by nature: each iteration decides whether
+      // to continue from the rows the previous one returned, and stops as soon
+      // as it has enough. Running the queries in parallel would issue reads for
+      // partitions the walk was about to skip.
+      "includes": ["packages/chat-db/src/**"],
+      "linter": {
+        "rules": {
+          "performance": {
+            "noAwaitInLoops": "off"
+          }
+        }
+      }
+    },
+    {
       // Drizzle requires the schema namespace object -- `drizzle(pool, { schema })`
       // is what enables relational queries.
       "includes": ["packages/db/**"],
@@ -91,7 +105,8 @@
         "packages/db/src/schema/index.ts",
         "packages/db/src/validation/index.ts",
         "packages/ui/src/components/index.ts",
-        "packages/ui/src/lib/index.ts"
+        "packages/ui/src/lib/index.ts",
+        "packages/chat-db/src/index.ts"
       ],
       "linter": {
         "rules": {

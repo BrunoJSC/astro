@@ -21,6 +21,24 @@ Denial of service through infinite loops in the ICNS, JXL and HEIF parsers.
 - **Remove when:** Metro ships a release depending on `image-size` > 2.0.2.
   Check with `bun audit fix --dry-run`.
 
+## GHSA-xcpc-8h2w-3j85 — `adm-zip` < 0.6.0
+
+A crafted ZIP triggers a 4 GB allocation.
+
+- **Reached through:** `cassandra-driver`, which pins `~0.5.10`, so the fixed
+  0.6.0 is outside the range and `bun audit fix` reports it *blocked by a
+  dependent's range*.
+- **Why accepted:** the driver requires `adm-zip` in exactly one file,
+  `lib/datastax/cloud/index.js`, which unzips a DataStax Astra secure-connect
+  bundle. `client.js` does call `cloud.init()` on every connect — but `init()`
+  opens with `if (!options.cloud) return;`, and `parseZipFile()`, the only
+  `adm-zip` caller, sits after that guard. `@repo/chat-db` never sets `cloud`;
+  it connects to ScyllaDB by contact point. No ZIP is parsed from any source.
+- **Remove when:** cassandra-driver widens its range past 0.5.x. Re-check with
+  `bun audit fix --dry-run`.
+- **Re-evaluate if:** anyone adds a `cloud` / `secureConnectBundle` option to
+  `packages/chat-db/src/client.ts`. That would make the path live.
+
 ---
 
 # Deploy secrets

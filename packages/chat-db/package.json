@@ -1,0 +1,27 @@
+{
+  "name": "@repo/chat-db",
+  "version": "0.0.0",
+  "private": true,
+  "description": "ScyllaDB message history, audit and moderation logs",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./client": "./src/client.ts",
+    "./buckets": "./src/buckets.ts"
+  },
+  "scripts": {
+    "check-types": "tsc --noEmit",
+    "clean": "rm -rf .turbo node_modules *.tsbuildinfo",
+    "test": "bun test tests/unit",
+    "test:unit": "bun test tests/unit"
+  },
+  "dependencies": {
+    "@repo/env": "workspace:*",
+    "cassandra-driver": "catalog:chat"
+  },
+  "devDependencies": {
+    "@repo/config": "workspace:*",
+    "@types/bun": "catalog:",
+    "typescript": "catalog:"
+  }
+}
