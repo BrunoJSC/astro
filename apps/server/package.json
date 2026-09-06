@@ -1,0 +1,43 @@
+{
+  "name": "@repo/server",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Elysia API server with end-to-end typed Eden Treaty contracts",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./type": "./src/type.ts",
+    "./eden": "./src/eden.ts",
+    "./plugins/query": "./src/plugins/query.ts",
+    "./plugins/auth": "./src/plugins/auth.ts"
+  },
+  "scripts": {
+    "bench": "bun run bench/index.ts",
+    "check-types": "tsc --noEmit",
+    "clean": "rm -rf .turbo node_modules coverage *.tsbuildinfo",
+    "dev": "bun --watch src/index.ts",
+    "start": "bun src/index.ts",
+    "test": "bun run test:unit && bun run test:integration",
+    "test:coverage": "vitest run --coverage",
+    "test:integration": "vitest run",
+    "test:unit": "bun test tests/unit"
+  },
+  "dependencies": {
+    "@elysiajs/cors": "catalog:api",
+    "@elysiajs/eden": "catalog:api",
+    "@elysiajs/swagger": "catalog:api",
+    "@repo/auth": "workspace:*",
+    "@repo/db": "workspace:*",
+    "@repo/env": "workspace:*",
+    "@tanstack/query-core": "catalog:api",
+    "elysia": "catalog:api"
+  },
+  "devDependencies": {
+    "@repo/config": "workspace:*",
+    "@types/bun": "catalog:",
+    "@vitest/coverage-v8": "catalog:test",
+    "mitata": "catalog:test",
+    "typescript": "catalog:",
+    "vitest": "catalog:test"
+  }
+}
