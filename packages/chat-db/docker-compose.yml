@@ -1,0 +1,31 @@
+# Single-node ScyllaDB for validating the CQL in ./cql.
+#
+# Deliberately ephemeral: there is no volume, so `docker compose down` leaves
+# nothing behind. This is a schema harness, not a dev database -- if you later
+# want data to survive a restart, add a named volume on /var/lib/scylla.
+#
+# The flags matter on a laptop. Scylla assumes it owns the machine: without
+# --overprovisioned and --developer-mode it reserves hugepages, pins one shard
+# per core and refuses to start when it cannot get the I/O guarantees it wants.
+services:
+  scylla:
+    image: scylladb/scylla:2026.3.0
+    container_name: astro-scylla
+    command: >
+      --smp 1
+      --memory 1G
+      --overprovisioned 1
+      --developer-mode 1
+    ports:
+      - "9042:9042"
+    volumes:
+      - ./cql:/cql:ro
+    healthcheck:
+      # cqlsh answering is the real readiness signal. The port opens well
+      # before CQL is served, so waiting on the port alone races the schema
+      # load and fails with "Connection refused" halfway through 001.
+      test: ["CMD-SHELL", "cqlsh -e 'DESCRIBE CLUSTER' >/dev/null 2>&1 || exit 1"]
+      interval: 10s
+      timeout: 10s
+      retries: 30
+      start_period: 30s

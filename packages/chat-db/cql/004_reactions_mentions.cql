@@ -33,6 +33,28 @@ USE astro_chat;
 -- sorted partition with no client-side grouping. Grouping is by emoji_key, so
 -- a Unicode 🎉 and a custom emoji named :tada: stay separate -- which is what
 -- Discord does too.
+CREATE TABLE IF NOT EXISTS reactions_by_message (
+  message_id      timeuuid,
+  emoji_key       text,      -- '🎉', or 'custom:<uuid>'. Never null.
+  user_id         uuid,
+  custom_emoji_id uuid,      -- regular column: the uuid from emoji_key, or null
+  created_at      timestamp,
+  PRIMARY KEY ((message_id), emoji_key, user_id)
+)
+WITH CLUSTERING ORDER BY (emoji_key ASC, user_id ASC)
+  AND compaction = {
+    'class': 'LeveledCompactionStrategy'
+  }
+  -- Leveled, not TimeWindow. Reactions are the one table here that is NOT
+  -- append-only: removing a reaction is a delete, and toggling one is a
+  -- delete-then-insert. TWCS assumes rows are written once and never touched,
+  -- and would leave tombstones scattered across windows it never recompacts.
+  -- LCS keeps overlap low so a partition read touches few SSTables even after
+  -- heavy churn.
+
+  AND comment = 'Reactions on one message. Partition = one message.';
+
+
 -- Counting.
 --
 -- The reaction bar needs "🎉 x12", and the table above answers it by reading

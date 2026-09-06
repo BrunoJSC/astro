@@ -73,6 +73,12 @@ bounded by its audience rather than by time. The seam is
 is deliberately opaque to Postgres: UUIDv1 lays its timestamp out
 low-bits-first, so the unread comparison has to happen in Scylla.
 
+**The CQL has not run against a live ScyllaDB yet.** It was written on a
+machine without Docker, and Scylla is Linux-only so there was no way to apply
+it. `packages/chat-db/README.md` explains what that leaves unverified, and
+`cd packages/chat-db && bun run validate:cql` brings up a throwaway node,
+loads the schema and asserts it. Run that first on a machine with Docker.
+
 **Every pull request gets its own database.** `.github/workflows/preview-db.yml`
 creates a schema-only Neon branch, migrates it, and deletes it on close.
 

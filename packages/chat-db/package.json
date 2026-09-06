@@ -12,8 +12,12 @@
   "scripts": {
     "check-types": "tsc --noEmit",
     "clean": "rm -rf .turbo node_modules *.tsbuildinfo",
+    "scylla:cqlsh": "docker compose exec scylla cqlsh",
+    "scylla:down": "docker compose down -v",
+    "scylla:up": "docker compose up -d --wait",
     "test": "bun test tests/unit",
-    "test:unit": "bun test tests/unit"
+    "test:unit": "bun test tests/unit",
+    "validate:cql": "./scripts/validate.sh"
   },
   "dependencies": {
     "@repo/env": "workspace:*",
