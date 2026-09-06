@@ -81,27 +81,20 @@ export const messages = pgTable(
      * backwards range scan with no sort step. Partial on `deleted_at IS NULL`
      * so tombstones neither occupy it nor have to be filtered afterwards.
      *
-     * MEASURED CAVEAT. The planner does not always choose it. With 785k rows
-     * across 61 channels, `WHERE channel_id = X ORDER BY id DESC LIMIT 50`
-     * picked `messages_pkey` and scanned backwards, discarding 472,000 rows to
-     * find 50 -- 88ms, against microseconds for the index. Its cost estimate
-     * for that plan was 229, because it assumes matching rows appear early in
-     * the scan.
+     * `.nullsFirst()` is load-bearing, and its absence cost 1255x.
      *
-     * That assumption holds when a channel is busy: ids interleave across
-     * channels, so a backward scan hits the target every few rows. It breaks
-     * for a QUIET channel in a busy server -- scanning back from "now" then
-     * traverses everything newer. Neither `ORDER BY channel_id, id DESC` nor
-     * `CREATE STATISTICS (dependencies, mcv)` changed the choice; both were
-     * tried.
+     * Drizzle's `.desc()` emits `DESC NULLS LAST`. Postgres, meanwhile, reads
+     * a bare `ORDER BY id DESC` as `DESC NULLS FIRST` -- a different ordering,
+     * which the index therefore does not provide. The planner silently
+     * discarded it and fell back to `messages_pkey`, scanning backwards and
+     * throwing away 472,000 rows to find 50: 91.6ms. With the modifier, the
+     * same query is an Index Only Scan at 0.073ms.
      *
-     * The structural answer is partitioning `messages` by channel, which makes
-     * each partition's own scan channel-local. Drizzle cannot declare
-     * partitions, so that is a raw-SQL migration and a deliberate decision, not
-     * something to slip in here.
+     * `id` is NOT NULL, so this changes nothing semantically. It exists purely
+     * so the index matches the sort the query asks for.
      */
     index("messages_channel_id_id_idx")
-      .on(table.channelId, table.id.desc())
+      .on(table.channelId, table.id.desc().nullsFirst())
       .where(sql`${table.deletedAt} is null`),
     // Moderation and account deletion: "everything this user wrote".
     index("messages_author_id_idx").on(table.authorId),

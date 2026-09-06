@@ -25,12 +25,16 @@ export const messageMentions = pgTable(
     /*
      * The inbox query: "my mentions, newest first". Descending on messageId is
      * chronological because ids are UUIDv7, so this index answers it as a
-     * backwards range scan with no sort -- the same trick the channel index
-     * uses.
+     * backwards range scan with no sort.
+     *
+     * `.nullsFirst()` for the same reason as the channel index in
+     * ../messages.ts: Drizzle's `.desc()` emits `DESC NULLS LAST`, which does
+     * not match the `DESC NULLS FIRST` that a bare `ORDER BY ... DESC` asks
+     * for, and the planner then ignores the index entirely.
      */
     index("message_mentions_user_id_message_id_idx").on(
       table.userId,
-      table.messageId.desc()
+      table.messageId.desc().nullsFirst()
     ),
   ]
 );

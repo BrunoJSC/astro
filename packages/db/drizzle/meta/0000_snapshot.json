@@ -1,5 +1,5 @@
 {
-  "id": "95208847-1542-415c-b15f-c1279209a6fc",
+  "id": "81cf0979-67ac-4400-9c40-2d389442ca42",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -1145,7 +1145,7 @@
               "expression": "message_id",
               "isExpression": false,
               "asc": false,
-              "nulls": "last"
+              "nulls": "first"
             }
           ],
           "isUnique": false,
@@ -1308,13 +1308,6 @@
           "primaryKey": false,
           "notNull": false
         },
-        "mentions_everyone": {
-          "name": "mentions_everyone",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": false
-        },
         "edited_at": {
           "name": "edited_at",
           "type": "timestamp with time zone",
@@ -1327,6 +1320,13 @@
           "primaryKey": true,
           "notNull": true,
           "default": "uuidv7()"
+        },
+        "mentions_everyone": {
+          "name": "mentions_everyone",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
         },
         "reply_to_id": {
           "name": "reply_to_id",
@@ -1357,7 +1357,7 @@
               "expression": "id",
               "isExpression": false,
               "asc": false,
-              "nulls": "last"
+              "nulls": "first"
             }
           ],
           "isUnique": false,
@@ -1618,12 +1618,6 @@
       "name": "channel_read_state",
       "schema": "",
       "columns": {
-        "user_id": {
-          "name": "user_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
         "channel_id": {
           "name": "channel_id",
           "type": "uuid",
@@ -1649,6 +1643,12 @@
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
         }
       },
       "indexes": {
@@ -1669,12 +1669,12 @@
         }
       },
       "foreignKeys": {
-        "channel_read_state_user_id_user_id_fk": {
-          "name": "channel_read_state_user_id_user_id_fk",
+        "channel_read_state_channel_id_channels_id_fk": {
+          "name": "channel_read_state_channel_id_channels_id_fk",
           "tableFrom": "channel_read_state",
-          "tableTo": "user",
+          "tableTo": "channels",
           "columnsFrom": [
-            "user_id"
+            "channel_id"
           ],
           "columnsTo": [
             "id"
@@ -1682,12 +1682,12 @@
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
-        "channel_read_state_channel_id_channels_id_fk": {
-          "name": "channel_read_state_channel_id_channels_id_fk",
+        "channel_read_state_user_id_user_id_fk": {
+          "name": "channel_read_state_user_id_user_id_fk",
           "tableFrom": "channel_read_state",
-          "tableTo": "channels",
+          "tableTo": "user",
           "columnsFrom": [
-            "channel_id"
+            "user_id"
           ],
           "columnsTo": [
             "id"

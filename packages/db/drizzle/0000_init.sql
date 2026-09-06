@@ -127,9 +127,9 @@ CREATE TABLE "messages" (
 	"content" text DEFAULT '' NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"deleted_at" timestamp with time zone,
-	"mentions_everyone" boolean DEFAULT false NOT NULL,
 	"edited_at" timestamp with time zone,
 	"id" uuid PRIMARY KEY DEFAULT uuidv7() NOT NULL,
+	"mentions_everyone" boolean DEFAULT false NOT NULL,
 	"reply_to_id" uuid,
 	"type" "message_type" DEFAULT 'default' NOT NULL,
 	CONSTRAINT "messages_content_length" CHECK (length("messages"."content") <= 4000)
@@ -147,11 +147,11 @@ CREATE TABLE "message_reactions" (
 );
 --> statement-breakpoint
 CREATE TABLE "channel_read_state" (
-	"user_id" uuid NOT NULL,
 	"channel_id" uuid NOT NULL,
 	"last_read_message_id" uuid,
 	"mention_count" integer DEFAULT 0 NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"user_id" uuid NOT NULL,
 	CONSTRAINT "channel_read_state_user_id_channel_id_pk" PRIMARY KEY("user_id","channel_id")
 );
 --> statement-breakpoint
@@ -230,8 +230,8 @@ ALTER TABLE "messages" ADD CONSTRAINT "messages_reply_to_id_messages_id_fk" FORE
 ALTER TABLE "message_reactions" ADD CONSTRAINT "message_reactions_custom_emoji_id_guild_emojis_id_fk" FOREIGN KEY ("custom_emoji_id") REFERENCES "public"."guild_emojis"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "message_reactions" ADD CONSTRAINT "message_reactions_message_id_messages_id_fk" FOREIGN KEY ("message_id") REFERENCES "public"."messages"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "message_reactions" ADD CONSTRAINT "message_reactions_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "channel_read_state" ADD CONSTRAINT "channel_read_state_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "channel_read_state" ADD CONSTRAINT "channel_read_state_channel_id_channels_id_fk" FOREIGN KEY ("channel_id") REFERENCES "public"."channels"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "channel_read_state" ADD CONSTRAINT "channel_read_state_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "roles" ADD CONSTRAINT "roles_guild_id_guilds_id_fk" FOREIGN KEY ("guild_id") REFERENCES "public"."guilds"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "session" ADD CONSTRAINT "session_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 CREATE INDEX "account_userId_idx" ON "account" USING btree ("user_id");--> statement-breakpoint
@@ -248,9 +248,9 @@ CREATE INDEX "guilds_owner_id_idx" ON "guilds" USING btree ("owner_id");--> stat
 CREATE INDEX "invites_guild_id_idx" ON "invites" USING btree ("guild_id");--> statement-breakpoint
 CREATE INDEX "invites_expires_at_idx" ON "invites" USING btree ("expires_at");--> statement-breakpoint
 CREATE INDEX "member_roles_role_id_idx" ON "member_roles" USING btree ("role_id");--> statement-breakpoint
-CREATE INDEX "message_mentions_user_id_message_id_idx" ON "message_mentions" USING btree ("user_id","message_id" DESC NULLS LAST);--> statement-breakpoint
+CREATE INDEX "message_mentions_user_id_message_id_idx" ON "message_mentions" USING btree ("user_id","message_id" DESC NULLS FIRST);--> statement-breakpoint
 CREATE INDEX "message_role_mentions_role_id_idx" ON "message_role_mentions" USING btree ("role_id");--> statement-breakpoint
-CREATE INDEX "messages_channel_id_id_idx" ON "messages" USING btree ("channel_id","id" DESC NULLS LAST) WHERE "messages"."deleted_at" is null;--> statement-breakpoint
+CREATE INDEX "messages_channel_id_id_idx" ON "messages" USING btree ("channel_id","id" DESC NULLS FIRST) WHERE "messages"."deleted_at" is null;--> statement-breakpoint
 CREATE INDEX "messages_author_id_idx" ON "messages" USING btree ("author_id");--> statement-breakpoint
 CREATE INDEX "messages_reply_to_id_idx" ON "messages" USING btree ("reply_to_id");--> statement-breakpoint
 CREATE INDEX "message_reactions_message_emoji_idx" ON "message_reactions" USING btree ("message_id","emoji","custom_emoji_id");--> statement-breakpoint
