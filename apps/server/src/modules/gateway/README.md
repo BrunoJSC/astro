@@ -167,14 +167,41 @@ header is present.
 
 ## Verifying
 
-Unit tests need nothing:
+Three layers, and only the last one needs a machine with Docker.
+
+**Unit** — the registry, the frame handlers and the subprotocol parser, with
+fakes. Needs nothing:
 
 ```bash
-cd apps/server && bun test tests/unit
+cd apps/server && bun run test:unit
 ```
 
-The integration check needs Redis, Postgres, and — critically — **two** server
-processes:
+**End to end** — a real Elysia server, a real WebSocket, fake Redis and
+Postgres behind them. This is the only thing that exercises the *upgrade*:
+every claim about it here came from reading the Bun adapter's source, and these
+tests execute it — that the plugin lifecycle runs, that `authPlugin`'s derive
+lands on `ws.data`, that the TypeBox schema rejects a frame before a handler
+sees it, that `ws.close(4001)` reaches the client with that code.
+
+```bash
+cd apps/server && bun run test:e2e
+```
+
+`bun test`, not vitest: vitest runs under Node here, and `app.listen()` needs
+`Bun.serve`.
+
+`gateway-fanout.test.ts` in the same directory needs a real Redis and **skips**
+with an instruction when none answers. It runs two `GatewayRegistry` instances
+with different origins over one Redis, which is the smallest arrangement where
+the `origin` filter is observable at all: with a single node, a filter that
+drops everything and one that drops nothing look identical.
+
+```bash
+cd packages/kv && bun run kv:up
+cd ../../apps/server && bun run test:e2e
+```
+
+**Two processes** — the full check, which nothing automated covers:
 
 ```bash
 cd packages/kv && bun run kv:up          # Valkey on 6379

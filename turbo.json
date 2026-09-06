@@ -58,7 +58,7 @@
     },
 
     "test": {
-      "dependsOn": ["^build", "test:unit", "test:integration"],
+      "dependsOn": ["^build", "test:unit", "test:e2e", "test:integration"],
       "outputs": []
     },
 
@@ -66,6 +66,16 @@
       "dependsOn": ["^build"],
       "inputs": ["$TURBO_DEFAULT$", "tests/unit/**"],
       "env": ["DATABASE_URL", "TEST_DATABASE_URL"],
+      "outputs": []
+    },
+
+    // Runs under `bun test`, not vitest: it starts a real server with
+    // `app.listen()`, which needs `Bun.serve`. REDIS_URL is declared because
+    // the fan-out suite uses it to decide whether to run or skip.
+    "test:e2e": {
+      "dependsOn": ["^build"],
+      "inputs": ["$TURBO_DEFAULT$", "tests/e2e/**"],
+      "env": ["REDIS_URL", "DATABASE_URL"],
       "outputs": []
     },
 

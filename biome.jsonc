@@ -89,11 +89,14 @@
       }
     },
     {
-      // The validation harness talks to a real server and asserts ordering:
-      // the rate-limit budget has to be spent one take at a time for the
-      // countdown to mean anything, and the concurrent case is a separate
-      // assertion right below it. Parallelising here would delete the test.
-      "includes": ["packages/kv/scripts/**"],
+      // Two sequential-by-nature loops. The validation harness asserts the
+      // rate-limit budget counts DOWN, which only means something one take at
+      // a time; the e2e harness polls for a condition, which is what polling
+      // is. Neither has anything to parallelise.
+      "includes": [
+        "packages/kv/scripts/**",
+        "apps/server/tests/e2e/harness.ts"
+      ],
       "linter": {
         "rules": {
           "performance": {
@@ -138,7 +141,10 @@
       // in the run. Spreading the real namespace over the overrides keeps the
       // exports it does not stub -- notably `subscribeEvents`, which
       // gateway-registry.test.ts needs -- instead of erasing them.
-      "includes": ["apps/server/tests/unit/gateway-handlers.test.ts"],
+      "includes": [
+        "apps/server/tests/unit/gateway-handlers.test.ts",
+        "apps/server/tests/e2e/gateway.test.ts"
+      ],
       "linter": {
         "rules": {
           "performance": {

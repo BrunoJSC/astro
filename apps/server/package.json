@@ -20,8 +20,9 @@
     "clean": "rm -rf .turbo node_modules coverage *.tsbuildinfo",
     "dev": "bun --watch src/index.ts",
     "start": "bun src/index.ts",
-    "test": "bun run test:unit && bun run test:integration",
+    "test": "bun run test:unit && bun run test:e2e && bun run test:integration",
     "test:coverage": "vitest run --coverage",
+    "test:e2e": "bun test tests/e2e",
     "test:integration": "vitest run",
     "test:unit": "bun test tests/unit"
   },
