@@ -11,10 +11,18 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   /**
-   * Workspace packages ship raw TypeScript -- their `exports` point at
-   * `src/*.ts`, with no build step -- so Next has to compile them itself.
-   * Without this every import from @repo/* fails at build time with a syntax
-   * error on the first type annotation it meets.
+   * Workspace packages ship raw TypeScript: their `exports` point at `src/*.ts`
+   * with no build step, so something has to compile them.
+   *
+   * Under Turbopack -- the default in Next 16, used by both `build` and `dev`
+   * here -- that something is not this option. Measured by deleting it: the
+   * build still succeeds and `tests/e2e` stays green, because Turbopack
+   * compiles a workspace dependency's TypeScript on its own.
+   *
+   * It stays as an explicit declaration for the webpack path
+   * (`next build --webpack`) and for anything else reading the config. Do not
+   * treat its presence as proof the packages compile -- `tests/e2e` asserts
+   * the output instead.
    */
   transpilePackages: [
     "@repo/ui",

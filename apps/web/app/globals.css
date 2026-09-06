@@ -5,8 +5,15 @@
 @import "@repo/ui/styles";
 
 /*
- * Tailwind v4 scans only the paths it is told about. `@repo/ui` declares its
- * own components; this app declares its own tree, or the classes written in
- * these files never make it into the output.
+ * v4 has no `content` glob: it detects sources automatically, walking UP from
+ * the CSS file to the project root -- the `.git` directory -- and scanning
+ * everything there that is not gitignored. In this monorepo that already
+ * covers `app/`, so removing the line below changes nothing. Measured; see
+ * `tests/e2e/bundle.test.ts`.
+ *
+ * It stays as the explicit floor. Detection depends on where the root is
+ * found, and a build that runs from a different root -- a deploy that copies
+ * this app out of the monorepo, most obviously -- has nothing else pointing at
+ * this tree.
  */
 @source ".";

@@ -5,8 +5,9 @@ Rust. Most of it has never been executed — the exceptions are `@repo/kv`, whos
 Lua ran against a Redis built from source; `@repo/chat-db`, whose CQL ran
 against an Apache Cassandra node; `@repo/db`, whose migration ran against a
 Postgres 18 built from source; `packages/ui`, whose stylesheet and components
-are compiled and rendered by tests that need no server at all; and the desktop
-app's credential storage. Windows 11 is where
+are compiled and rendered by tests that need no server at all; `apps/web`,
+which builds and serves under `bun run test:e2e`; and the desktop app's
+credential storage. Windows 11 is where
 that changes — every blocker below is a limitation of the machine it was written
 on, not of the code.
 

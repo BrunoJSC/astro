@@ -113,6 +113,25 @@ engine it maintains CQL compatibility with stood in. `bun run validate:cql`
 points the same suite at real Scylla, which is still worth doing —
 Scylla-specific behaviour is not covered.
 
+**The web app builds, and what it ships is checked.** `apps/web/tests/e2e/`
+runs `next build` for real and then reads the output: the routes prerender
+static, the workspace packages compile, the design system's tokens reach the
+stylesheet, and `next start` answers `/` with 200 and an unknown path with a
+real 404. The assertion worth having is the leak check — it searches the
+prerendered HTML as well as the JS chunks, because that is where a server value
+actually lands.
+
+**A Client Component can read server env, and the build will not stop it.**
+Measured while writing that leak check: a `"use client"` file importing
+`@repo/env/server` compiles, and the value is rendered into
+`.next/server/app/<route>.html` — the file every visitor downloads. T3 Env's
+guard is `typeof window`, and during prerender a Client Component runs on the
+server, so the guard sees a server and hands the value over. It never reaches a
+JS chunk, so a leak check that only searched `.next/static` would report
+success. Nothing enforces this boundary today; `apps/web/tests/e2e/bundle.test.ts`
+detects it after the fact. Adding the `server-only` package to
+`packages/env/src/server.ts` would make it a build error instead.
+
 **The design system compiles, and the classes it renders are real ones.**
 `packages/ui/tests/e2e/` renders the Button with `react-dom/server` and compiles
 `globals.css` through the same `@tailwindcss/postcss` plugin the apps load, then

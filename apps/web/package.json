@@ -5,11 +5,13 @@
   "type": "module",
   "description": "Next.js App Router front-end",
   "scripts": {
-    "dev": "next dev --turbopack",
     "build": "next build",
-    "start": "next start",
     "check-types": "tsc --noEmit",
-    "clean": "rm -rf .turbo .next node_modules *.tsbuildinfo"
+    "clean": "rm -rf .turbo .next node_modules *.tsbuildinfo",
+    "dev": "next dev --turbopack",
+    "start": "next start",
+    "test": "bun run test:e2e",
+    "test:e2e": "bun test tests/e2e"
   },
   "dependencies": {
     "@repo/auth": "workspace:*",
