@@ -68,3 +68,31 @@ SELECT message_id, content FROM messages_by_channel
  WHERE channel_id = ? AND bucket_year_month = ?
    AND message_id > maxTimeuuid(?)
    AND message_id < minTimeuuid(?);
+
+-- Reactions on a message, already grouped by emoji because the clustering
+-- order is (emoji, custom_emoji_id, user_id).
+SELECT emoji_key, custom_emoji_id, user_id
+  FROM reactions_by_message
+ WHERE message_id = ?;
+
+-- "Did I react with this?" -- an exact clustering key, so a single-row read
+-- rather than a scan of the partition.
+SELECT user_id FROM reactions_by_message
+ WHERE message_id = ? AND emoji_key = ? AND user_id = ?;
+
+-- Removing one. The full key is required: a DELETE with a partial clustering
+-- key writes a range tombstone, which is far more expensive to read past.
+DELETE FROM reactions_by_message
+ WHERE message_id = ? AND emoji_key = ? AND user_id = ?;
+
+-- The mention inbox, newest first, one partition read per bucket.
+SELECT message_id, channel_id, guild_id, author_id, content_preview
+  FROM mentions_by_user
+ WHERE user_id = ? AND bucket_year_month = ? AND message_id < ?
+ LIMIT ?;
+
+-- What a message mentioned. Feeds rendering, and the role-mention badge after
+-- intersecting mentioned_roles with the reader's roles from Postgres.
+SELECT mentioned_users, mentioned_roles, mentions_everyone
+  FROM mentions_by_message
+ WHERE message_id = ?;

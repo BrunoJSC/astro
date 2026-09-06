@@ -65,8 +65,10 @@ Better Auth changes a column.
 
 **Two datastores, split by shape.** Postgres holds the relational graph --
 users, guilds, members, roles, channels, permissions -- where foreign keys and
-transactions earn their cost. ScyllaDB holds the append-only streams: message
-history, audit and moderation logs, partitioned by time bucket. The seam is
+transactions earn their cost. ScyllaDB holds everything hanging off a message: message
+history, reactions, mentions, audit and moderation logs. Most are partitioned
+by time bucket; reactions are not, because a message's reaction count is
+bounded by its audience rather than by time. The seam is
 `channel_read_state.last_read_message_id`, which stores a Scylla `timeuuid` and
 is deliberately opaque to Postgres: UUIDv1 lays its timestamp out
 low-bits-first, so the unread comparison has to happen in Scylla.
