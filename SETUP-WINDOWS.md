@@ -1,7 +1,9 @@
 # Running astro on Windows 11
 
-This repository was written on a borrowed macOS 12 machine with no Docker, no
-Rust and no Redis. Almost nothing in it has been executed. Windows 11 is where
+This repository was written on a borrowed macOS 12 machine with no Docker and no
+Rust. Most of it has never been executed — the exceptions are `@repo/kv`, whose
+Lua was verified against a Redis built from source, and the desktop app's
+credential storage. Windows 11 is where
 that changes — every blocker below is a limitation of the machine it was written
 on, not of the code.
 
@@ -77,7 +79,8 @@ with the reasoning for each.
 
 ```powershell
 cd packages\kv
-bun run kv:up          # Valkey on 6379
+bun run kv:up          # Valkey on 6379, plus a cluster-enabled one on 6380
+                       # that exists only so CLUSTER KEYSLOT answers
 
 cd ..\chat-db
 docker compose up -d --wait   # ScyllaDB on 9042 — first pull is ~400MB
@@ -108,6 +111,7 @@ Four processes, four terminals. Ports:
 | 3001 | server (Elysia API + `/gateway` WebSocket) |
 | 5173 | desktop renderer dev server |
 | 6379 | Valkey |
+| 6380 | Valkey, cluster-enabled — slot checks only |
 | 9042 | ScyllaDB |
 
 ```powershell
@@ -123,28 +127,26 @@ private networks only.
 
 ## What to verify first
 
-Nothing in this list has ever run. They are ordered so a failure in one does not
-mask the next.
+Ordered so a failure in one does not mask the next. Only step 1 has ever been
+executed; the rest is the backlog.
 
-### 1. The Lua in `@repo/kv`
+### 1. The Lua in `@repo/kv` — re-run, do not re-verify
 
-The TypeScript is tested with a fake client, on purpose — the unit tests do not
-reimplement the scripts, because a test of a reimplementation tests the
-reimplementation. The scripts themselves run inside Redis and are where every
-atomicity claim in that package lives.
+Already executed against a real Redis 7.2.5, on macOS: 58 integration tests
+over presence, dead-socket reaping, typing, the sliding window, voice rosters
+and pub/sub, plus hash-tag co-location answered by `CLUSTER KEYSLOT`.
 
 ```powershell
 cd packages\kv
-bun run kv:up
-bun run scripts\validate.ts
+bun run validate:kv
 ```
 
-(The `validate:kv` script is bash; the two commands above are the same thing
-without it.)
+That starts both Valkey containers and runs the suite. It is cross-platform —
+no Git Bash needed — and the suite **skips** with an instruction when no server
+answers, so it is safe to run before Docker is up.
 
-The assertion that matters is the dead-socket reaper: it kills a liveness key,
-confirms the orphaned socket id survives a heartbeat on its own, and confirms
-the reaper removes exactly that one.
+What to watch for is a difference from macOS, not a first result: Valkey rather
+than Redis, and a Windows Docker network in front of it.
 
 ### 2. The CQL in `@repo/chat-db`
 
@@ -225,10 +227,11 @@ Two things will come up:
 
 ## Windows-specific notes
 
-**The two `.sh` scripts need Git Bash or WSL.** `packages/kv/scripts/validate.sh`
-and `packages/chat-db/scripts/validate.sh` are the only bash in the repo. The kv
-one has a pure-TypeScript equivalent (see step 1); the chat-db one drives
-`docker compose exec` and has no equivalent yet.
+**One `.sh` script needs Git Bash or WSL.**
+`packages/chat-db/scripts/validate.sh` is the only bash left in the repo — it
+drives `docker compose exec` to load CQL and has no equivalent yet. The kv one
+is gone: its assertions became `packages/kv/tests/integration/`, and
+`validate:kv` is now plain `docker compose` plus `bun test`.
 
 **Everything else in `package.json` is cross-platform.** Bun uses its own shell
 for `bun run` scripts on Windows, so `rm -rf` in the `clean` scripts works

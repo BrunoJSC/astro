@@ -89,12 +89,12 @@
       }
     },
     {
-      // Two sequential-by-nature loops. The validation harness asserts the
-      // rate-limit budget counts DOWN, which only means something one take at
+      // Two sequential-by-nature loops. The rate-limit integration test
+      // asserts the budget counts DOWN, which only means something one take at
       // a time; the e2e harness polls for a condition, which is what polling
       // is. Neither has anything to parallelise.
       "includes": [
-        "packages/kv/scripts/**",
+        "packages/kv/tests/integration/**",
         "apps/server/tests/e2e/harness.ts"
       ],
       "linter": {

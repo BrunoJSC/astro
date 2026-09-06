@@ -85,9 +85,10 @@ pass but nothing has connected to a real Redis or browser. Proving it needs TWO
 server processes — with one node the `origin` filter is untestable, since every
 event is local. `apps/server/src/modules/gateway/README.md` has the steps.
 
-**The Lua in `packages/kv` has never run against a server.** Its TypeScript is
-tested; `packages/kv/README.md` says what that leaves open, and
-`bun run validate:kv` settles it.
+**The Lua in `packages/kv` is verified.** 58 integration tests run it against a
+real Redis, including the hash-tag co-location answered by `CLUSTER KEYSLOT`
+rather than by our own CRC16. They skip when no server answers, so
+`bun run test` is safe anywhere; `bun run validate:kv` starts one first.
 
 **The desktop app launches, and its credential storage is verified.** It moved from Tauri to Electron
 because Tauri renders in the OS webview, and WKWebView has no `getDisplayMedia`

@@ -16,9 +16,10 @@
     "kv:cli": "docker compose exec valkey valkey-cli",
     "kv:down": "docker compose down -v",
     "kv:up": "docker compose up -d --wait",
-    "test": "bun test tests/unit",
+    "test": "bun run test:unit && bun run test:integration",
+    "test:integration": "bun test tests/integration",
     "test:unit": "bun test tests/unit",
-    "validate:kv": "./scripts/validate.sh"
+    "validate:kv": "docker compose up -d --wait && bun test tests/integration"
   },
   "dependencies": {
     "@repo/env": "workspace:*",

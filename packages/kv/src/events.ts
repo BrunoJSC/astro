@@ -69,9 +69,10 @@ export interface SubscribeOptions {
 /**
  * Subscribe to one scope's channel.
  *
- * The subscriber connection is separate from the command connection, and it has
- * to be: a subscribed connection refuses every command except subscribe,
- * unsubscribe and ping. `createKvSubscriber` produces the right one.
+ * The subscriber connection is separate from the command connection. Under
+ * RESP2 it must be; under RESP3, which ioredis negotiates by default, the two
+ * could share a socket but should not -- see `createKvSubscriber`.
+ * `createKvSubscriber` produces the right one.
  *
  * Handlers run on Redis's message callback, so one that throws would take down
  * the shared listener for every subscription on this connection. They are

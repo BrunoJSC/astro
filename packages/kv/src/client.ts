@@ -116,12 +116,25 @@ export function createKvClient(config: KvConfig): KvClient {
 /**
  * A dedicated connection for SUBSCRIBE.
  *
- * Not an optimisation, a protocol requirement: once a connection subscribes it
- * enters subscriber mode and refuses every command except subscribe,
- * unsubscribe and ping. Sharing one connection between the fan-out reader and
- * ordinary commands breaks every HSET the moment the first channel is joined.
+ * Under RESP2 this is a hard requirement: a subscribed connection accepts only
+ * subscribe, unsubscribe and ping, and ioredis rejects anything else with
+ * "Connection in subscriber mode". Under RESP3 -- which ioredis negotiates by
+ * DEFAULT against a Redis 6+ server -- the restriction is gone and ordinary
+ * commands work on a subscribed connection. Measured, both ways, in
+ * `tests/integration/events.test.ts`.
  *
- * PUBLISH is not affected -- it runs on the command connection.
+ * The split stays regardless, for two reasons that outlive the protocol:
+ *
+ *   1. `enableOfflineQueue` has to differ. Commands fail fast (`false`) so a
+ *      stale heartbeat is refused rather than replayed minutes late; a
+ *      subscriber queues (`true`) so a reconnect resumes rather than dropping
+ *      the fan-out. One connection cannot be both.
+ *   2. Fan-out and commands would share one socket and one reply pipeline. A
+ *      busy guild's event stream would sit in front of the presence write
+ *      behind it.
+ *
+ * PUBLISH is unaffected either way -- it does not put a connection into
+ * subscriber mode, so the publisher keeps using the command connection.
  */
 export function createKvSubscriber(client: KvClient): Redis {
   return client.duplicate({ enableOfflineQueue: true, lazyConnect: true });

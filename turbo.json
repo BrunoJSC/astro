@@ -87,7 +87,15 @@
         "tests/setup.ts",
         "vitest.config.ts"
       ],
-      "env": ["DATABASE_URL", "TEST_DATABASE_URL"],
+      // REDIS_URL and REDIS_CLUSTER_URL: @repo/kv's integration suite reads
+      // them to decide whether to run or skip. Undeclared variables are
+      // stripped by turbo's strict env mode, so the suite would always skip.
+      "env": [
+        "DATABASE_URL",
+        "TEST_DATABASE_URL",
+        "REDIS_URL",
+        "REDIS_CLUSTER_URL"
+      ],
       "outputs": []
     },
 

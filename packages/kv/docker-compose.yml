@@ -20,3 +20,27 @@ services:
       timeout: 3s
       retries: 20
       start_period: 2s
+
+  # A second node, cluster-enabled, purely so `CLUSTER KEYSLOT` answers.
+  # It never forms a cluster and holds no data -- the slot tests only ask it
+  # to hash key names, which is how the hash-tag co-location in `src/keys.ts`
+  # is verified against Redis rather than against our own CRC16.
+  valkey-cluster:
+    image: valkey/valkey:9.0-alpine
+    container_name: astro-valkey-cluster
+    command:
+      - valkey-server
+      - --cluster-enabled
+      - "yes"
+      - --save
+      - ""
+      - --appendonly
+      - "no"
+    ports:
+      - "6380:6379"
+    healthcheck:
+      test: ["CMD", "valkey-cli", "ping"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+      start_period: 2s

@@ -9,29 +9,25 @@ second late and should not survive a restart.
 
 ---
 
-## Status: the Lua scripts have not run against a server yet
+## Verified against a real server
 
-The TypeScript is verified — 43 unit tests, `tsc` and Biome pass. The Lua in
-`src/scripts.ts` has never been executed. It was written on a machine with no
-Docker and no Redis binary, so there was nothing to run it against.
-
-That gap matters more here than it would elsewhere, because the scripts are
-where every atomicity claim in this package actually lives. The unit tests use a
-fake client on purpose: they check which keys are built and how replies are
-parsed, and deliberately do not reimplement the scripts, since a test of a
-reimplementation tests the reimplementation.
-
-First thing to run on a machine with Docker:
+The Lua in `src/scripts.ts` runs, and `tests/integration/` is what proves it —
+58 tests over presence, reaping, typing, the sliding window, voice rosters and
+pub/sub, plus hash-tag co-location answered by `CLUSTER KEYSLOT` rather than by
+our own CRC16.
 
 ```bash
-cd packages/kv && bun run validate:kv
+bun run validate:kv     # starts Valkey, runs the suite
+bun test tests/unit     # no server needed
 ```
 
-It starts a throwaway Valkey, exercises every script through this package's own
-exported functions, prints a pass/fail line per behaviour, and tears the server
-down. `bun run validate:kv -- --keep` leaves it up for `bun run kv:cli`.
+The integration suite **skips**, with an instruction, when no server answers —
+so it is safe to run anywhere.
 
-Delete this section once it has run clean.
+The split is deliberate. The unit tests use a fake client and do **not**
+reimplement the scripts, because a test of a reimplementation tests the
+reimplementation; the integration tests run the real thing, and are the only
+place concurrency is observable at all.
 
 ---
 
@@ -133,9 +129,13 @@ so a client that missed the event still gets the message on its next read.
 
 Two things the transport forces:
 
-- **A separate connection for `SUBSCRIBE`.** Not an optimisation — a subscribed
-  connection refuses every command except subscribe, unsubscribe and ping, so
-  sharing one breaks every `HSET` the moment the first channel is joined.
+- **A separate connection for `SUBSCRIBE`.** Under RESP2 a subscribed
+  connection accepts only subscribe, unsubscribe and ping. Under RESP3 — which
+  ioredis negotiates by **default** against Redis 6+ — that restriction is gone;
+  both are measured in `tests/integration/events.test.ts`. The split stays
+  anyway: `enableOfflineQueue` must differ between the two roles (commands fail
+  fast, subscriptions queue through a reconnect), and a busy fan-out would
+  otherwise sit in front of every command sharing the socket.
   `createKvSubscriber` produces the right one; `getKvConnections` returns both.
 - **An `origin` on every payload.** A node subscribes to the channels it also
   publishes on, so without filtering its own events it delivers each one twice

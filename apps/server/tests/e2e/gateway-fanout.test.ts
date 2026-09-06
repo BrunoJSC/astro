@@ -95,8 +95,9 @@ describe.skipIf(!available)("cross-node fan-out", () => {
   let nodeB: GatewayRegistry;
 
   beforeAll(async () => {
-    // Two command connections and two subscriber connections: a subscribed
-    // connection refuses every other command, so they cannot be shared.
+    // Two command connections and two subscriber connections. The roles are
+    // split because their `enableOfflineQueue` settings are opposites -- see
+    // `createKvSubscriber` -- not because RESP3 forbids sharing one.
     commandsA = createKvClient({ url: REDIS_URL });
     commandsB = createKvClient({ url: REDIS_URL });
     await Promise.all([commandsA.connect(), commandsB.connect()]);
