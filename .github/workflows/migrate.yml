@@ -28,9 +28,20 @@ concurrency:
 jobs:
   migrate:
     runs-on: ubuntu-latest
-    # Configure this environment with required reviewers in the repo settings.
-    # Without that, the approval gate does not exist and this is just a manual
-    # button.
+    # NOTE: required reviewers are NOT active here. GitHub restricts
+    # environment protection rules to public repositories on the Free plan;
+    # the API rejects them on this one with "Please ensure the billing plan
+    # supports the required reviewers protection rule". GitHub Pro or making
+    # the repository public would enable the real approval gate.
+    #
+    # What guards this run in the meantime:
+    #   - workflow_dispatch only, never automatic
+    #   - the typed confirmation above
+    #   - the environment's branch policy, which limits it to main
+    #   - the pending SQL printed to the summary before the write
+    #
+    # The environment is still worth referencing: it scopes the secrets below
+    # to this workflow, so DIRECT_URL is not readable by every other job.
     environment: production
     steps:
       - name: Check the confirmation

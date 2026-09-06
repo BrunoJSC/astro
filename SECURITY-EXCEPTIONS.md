@@ -43,7 +43,19 @@ The deploy workflows fail loudly without these. Set them with
 | `EXPO_TOKEN` | secret | build-native |
 | `EXPO_PUBLIC_API_URL` | variable | build-native — inlined into the bundle |
 
-`migrate` also needs a `production` environment with required reviewers, and
-`deploy-web` / `deploy-server` a `production-web` / `production-server`
-environment. Without the reviewers configured, the approval gate does not
-exist — the workflow still runs, just unguarded.
+## Environments
+
+`production`, `production-web` and `production-server` exist, each restricted
+to the `main` branch. Referencing them scopes secrets per workflow.
+
+**Required reviewers are not active.** GitHub allows environment protection
+rules on private repositories only from the Pro plan up; the API rejects them
+here with *"Please ensure the billing plan supports the required reviewers
+protection rule"*. Two ways to get the real approval gate:
+
+- GitHub Pro on the account, or
+- make the repository public.
+
+Until then `migrate` is guarded by being dispatch-only, by a typed
+confirmation, by the branch policy, and by printing the pending SQL to the run
+summary before it writes.
