@@ -15,6 +15,10 @@ pub fn run() {
         // social sign-in completes. The scheme is declared in tauri.conf.json;
         // the two have to agree or the redirect lands nowhere.
         .plugin(tauri_plugin_deep_link::init())
+        // Persists the session token to a file the app owns, outside the
+        // webview's storage. NOT encrypted -- see src/lib/storage/tauri-storage.ts
+        // for why neither official plugin gives the OS keychain.
+        .plugin(tauri_plugin_store::Builder::new().build())
         .invoke_handler(tauri::generate_handler![app_version])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

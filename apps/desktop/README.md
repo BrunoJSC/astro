@@ -98,14 +98,64 @@ Linux, and `http://tauri.localhost` on Windows. All three belong in the server's
 `CORS_ORIGINS`, or the app works throughout development and fails on the first
 machine that installs it.
 
-**Sessions may not survive a packaged build.** `lib/auth-client.ts` relies on the
-webview's cookie jar, which is the least surprising default and works in
-`tauri dev`. In a packaged app the API's cookie is third-party relative to
-`tauri://localhost`, and WKWebView and WebView2 both block those by default —
-sign-in appears to succeed and the session is gone on the next request. The fix
-is Better Auth's `bearer` plugin on the server plus storing the token in the OS
-keychain through a Tauri command, not in localStorage, which is plaintext on
-disk. That has a server-side half, so it is documented rather than guessed at.
+**Sessions are bearer tokens, not cookies.** A packaged window is served from
+`tauri://localhost`, so the API's cookie is third-party to it and both WKWebView
+and WebView2 block those by default — sign-in would appear to succeed and the
+session would be gone on the next request. So `@repo/auth` registers Better
+Auth's `bearer()` plugin: it returns the session token in a `set-auth-token`
+header on sign-in and accepts it back as `Authorization: Bearer`.
+`lib/auth-client.ts` captures and sends it; `lib/session-token.ts` holds it.
+
+Where it is held is the weak part — see below.
+
+## Credential storage is not the OS keychain
+
+`lib/storage/` is the adapter: one `ISecureStorage` contract, three backends,
+chosen at runtime by whether `window.__TAURI_INTERNALS__` exists. A Tauri window
+gets `@tauri-apps/plugin-store`; a browser or plain `vite dev` tab gets
+`localStorage`, which degrades to memory when the browser refuses it; anything
+with no `window` gets memory.
+
+None of them is the OS keychain, and the plugin names invite the opposite
+assumption:
+
+- **`plugin-store` does not encrypt.** It is a JSON file in the app's data
+  directory. Against a process running as the same user it is exactly as exposed
+  as `localStorage`. What it buys is a file the app owns, outside the webview's
+  storage, that survives a cleared cache and can be deleted deterministically.
+- **`plugin-stronghold` is not the keychain either.** It is an IOTA vault written
+  to an encrypted `.hold` snapshot, and it must be opened with a password. For an
+  app that signs the user in without prompting, that password has to live
+  somewhere the app can read unattended — which is the original problem, one
+  indirection down.
+- **Tauri v2 ships no official keychain plugin.** Reaching Keychain, Credential
+  Manager or Secret Service needs a community crate and a pair of Rust commands.
+
+So the token is plaintext on disk today. Every backend reports its own
+`durability` (`ephemeral` / `plaintext` / `encrypted`) so calling code can ask
+rather than assume, and the app surfaces it on screen. Moving to the keychain is
+one new backend in `lib/storage/` and one line in `getSecureStorage`.
+
+## The gateway
+
+`lib/gateway.ts` is the client for the server's realtime socket, and
+`lib/gateway-store.ts` holds one connection for the whole app — a hook that owned
+the socket would open one per component.
+
+The frame types are imported from `@repo/server/gateway/model` as types only, so
+the contract is the server's own definition rather than a copy that drifts. The
+import is erased at compile time; nothing from Elysia reaches the bundle.
+
+The token travels as a WebSocket subprotocol — `new WebSocket(url, ["bearer",
+token])` — because the WebSocket API cannot set an `Authorization` header, and a
+query string would put the session token into every proxy and access log it
+passes through.
+
+Reconnection is exponential backoff with **full jitter**, and the jitter is not
+politeness: when a server node dies every client it held reconnects at once, and
+a fixed delay makes them arrive together, knock over whichever node they land on,
+and repeat. A close with code 4001 is terminal — retrying a rejected credential
+just burns connections.
 
 ## Rust is for what only a native process can do
 

@@ -1,6 +1,11 @@
 import { usernameClient } from "better-auth/client/plugins";
 import { createAuthClient } from "better-auth/react";
 import { env } from "../env";
+import {
+  captureSessionToken,
+  clearSessionToken,
+  getSessionToken,
+} from "./session-token";
 
 /**
  * Better Auth client for the desktop app.
@@ -12,31 +17,60 @@ import { env } from "../env";
  *
  * ---
  *
- * KNOWN OPEN ITEM -- session persistence.
+ * ## Bearer, not cookie
  *
- * This client relies on the webview's cookie jar, which works in `tauri dev`
- * against a plain http origin and is the least surprising default. It is not
- * guaranteed in a packaged build: the window's origin is `tauri://localhost`,
- * so a cookie set by the API is third-party, and WKWebView and WebView2 both
- * block those by default. The symptom is sign-in appearing to succeed and the
- * session being gone on the next request.
+ * The cookie jar is not usable here. A packaged window is served from
+ * `tauri://localhost`, so a cookie set by the API is third-party to it, and
+ * WKWebView and WebView2 both block those by default -- sign-in appears to
+ * succeed and the session is gone on the next request.
  *
- * The fix, when it bites, is Better Auth's `bearer` plugin on the server plus
- * storing the returned token here -- in the OS keychain via a Tauri command,
- * not in localStorage, which is plaintext on disk in the app's data directory.
- * That is a real feature with a server-side half, so it is deliberately not
- * guessed at in a skeleton.
+ * So the server registers Better Auth's `bearer()` plugin, which returns the
+ * session token in a `set-auth-token` header on sign-in and accepts it back as
+ * `Authorization: Bearer`. `onSuccess` captures it, `auth.token` sends it, and
+ * `./session-token` decides where it is kept.
+ *
+ * Where it is kept is honestly weaker than a cookie today: see
+ * `./storage/tauri-storage.ts`. Neither official Tauri plugin gives the OS
+ * keychain, and the file the token lands in is not encrypted.
  */
 export const authClient = createAuthClient({
   baseURL: env.VITE_API_URL,
+  fetchOptions: {
+    // Sent on every request. `undefined` means no header at all, which is what
+    // a signed-out client should send -- an empty Bearer would be rejected
+    // rather than ignored.
+    auth: {
+      token: () => getSessionToken(),
+      type: "Bearer",
+    },
+    onSuccess: async ({ response }) => {
+      await captureSessionToken(response);
+    },
+  },
   // Same pairing as the web and native clients: the server registers
   // `username()`, so every client that should reach those endpoints registers
   // this one. The lists have to stay in step; that pairing is the contract.
   plugins: [usernameClient()],
 });
 
-export const { getSession, isUsernameAvailable, signIn, signOut, useSession } =
+export const { getSession, isUsernameAvailable, signIn, useSession } =
   authClient;
+
+/**
+ * Signs out, then drops the stored token.
+ *
+ * In that order, and both unconditionally. The server call needs the token to
+ * revoke the right session, and the local copy has to go even when that call
+ * fails -- otherwise a sign-out with no network leaves the app holding a
+ * credential the user believes they discarded.
+ */
+export const signOut: typeof authClient.signOut = async (...args) => {
+  try {
+    return await authClient.signOut(...args);
+  } finally {
+    await clearSessionToken();
+  }
+};
 
 /*
  * `signUp` and `updateUser` are annotated rather than destructured: their

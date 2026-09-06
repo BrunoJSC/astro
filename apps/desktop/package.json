@@ -13,7 +13,9 @@
     "dev": "tauri dev",
     "dev:vite": "vite",
     "preview": "vite preview",
-    "tauri": "tauri"
+    "tauri": "tauri",
+    "test": "bun test tests/unit",
+    "test:unit": "bun test tests/unit"
   },
   "dependencies": {
     "@repo/auth": "workspace:*",
@@ -24,6 +26,7 @@
     "@tauri-apps/api": "catalog:desktop",
     "@tauri-apps/plugin-deep-link": "catalog:desktop",
     "@tauri-apps/plugin-shell": "catalog:desktop",
+    "@tauri-apps/plugin-store": "catalog:desktop",
     "better-auth": "catalog:auth",
     "react": "catalog:",
     "react-dom": "catalog:",

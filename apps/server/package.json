@@ -11,7 +11,8 @@
     "./plugins/query": "./src/plugins/query.ts",
     "./plugins/auth": "./src/plugins/auth.ts",
     "./plugins/kv": "./src/plugins/kv.ts",
-    "./gateway": "./src/modules/gateway/index.ts"
+    "./gateway": "./src/modules/gateway/index.ts",
+    "./gateway/model": "./src/modules/gateway/model.ts"
   },
   "scripts": {
     "bench": "bun run bench/index.ts",

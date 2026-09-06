@@ -13,9 +13,10 @@ on top of a durable read, never the only copy.
 
 ## Status: never run against a live server
 
-`tsc` and Biome pass, and 27 unit tests cover the registry and the frame
-handlers with fakes. Nothing here has connected to a real Redis, a real
-Postgres, or a real browser: this machine has neither Docker nor a Redis binary.
+`tsc` and Biome pass, and 35 unit tests cover the registry, the frame handlers
+and the subprotocol parser with fakes. Nothing here has connected to a real
+Redis, a real Postgres, or a real browser: this machine has neither Docker nor a
+Redis binary.
 
 The verification that matters cannot be done with one process. See
 [Verifying](#verifying) — a single node hides both of the bugs the `origin`
@@ -131,14 +132,38 @@ allowing them would let any authenticated user subscribe to any DM by id.
 Unblocking it needs a `channel_recipients (channel_id, user_id)` table and one
 more branch in `authorize.ts`.
 
-**Desktop and native cannot connect.** The session comes from the upgrade
-request's cookies, and the browser WebSocket API cannot set a header. A Tauri
-window is served from `tauri://localhost` and has no cookie jar for the API's
-origin. Both need a token in the query string or a subprotocol.
+**Native cannot connect yet.** React Native has no cookie jar either, and would
+use the same bearer path the desktop now uses -- see below. Nothing wires it.
 
-**Presence `clientType` is always `"web"`.** Nothing tells the gateway what kind
-of client connected yet; it belongs in the same query-string or subprotocol
-handshake as the token above.
+## Two ways in
+
+A browser sends its session cookie on the upgrade automatically, and
+`authPlugin`'s derive resolves it before `open` runs. That is `apps/web`.
+
+A Tauri window cannot: it is served from `tauri://localhost`, so the API's
+cookie is third-party to it and both WKWebView and WebView2 block those by
+default. So it authenticates with a bearer token instead, and the token travels
+as a **WebSocket subprotocol** -- `new WebSocket(url, ["bearer", token])` --
+because `Sec-WebSocket-Protocol` is the only client-controlled header the
+WebSocket API exposes. `Authorization` cannot be set on a WebSocket at all.
+
+Not a query string, which is what most tutorials show. URLs are written to proxy
+logs, access logs and browser history as a matter of course, and a session token
+in any of those is a session token leaked. Headers are not routinely logged.
+
+`authenticate.ts` owns this. The cookie wins when both are present, so a browser
+cannot widen its own identity by also offering a token, and the subprotocol
+value is charset-checked against RFC 6455's `token` grammar before it is handed
+to Better Auth. The marker is echoed back in the upgrade response -- browsers
+fail the connection when the server selects a protocol that was not offered.
+
+The credential also decides how the session is rechecked: a cookie socket
+revalidates the cookie, a bearer socket revalidates the token. `clientType` in
+presence follows from it too, so a desktop client no longer reports as `"web"`.
+
+This needs `bearer()` registered in `@repo/auth`, which it now is. It changes
+nothing for the web app: the plugin's hooks only engage when an Authorization
+header is present.
 
 ## Verifying
 

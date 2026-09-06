@@ -3,7 +3,7 @@ import { env } from "@repo/env/server";
 import argon2 from "argon2";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
-import { username } from "better-auth/plugins";
+import { bearer, username } from "better-auth/plugins";
 
 /** Compiled once: the validators run on every sign-up, sign-in and update. */
 const USERNAME_PATTERN = /^[a-zA-Z0-9_]+$/;
@@ -65,6 +65,28 @@ export const auth = betterAuth({
     },
   },
   plugins: [
+    /*
+     * Session by `Authorization: Bearer <token>` as well as by cookie.
+     *
+     * Added for the clients that cannot hold a cookie. A Tauri window is served
+     * from `tauri://localhost`, so the API's cookie is third-party to it and
+     * both WKWebView and WebView2 block those by default -- sign-in appears to
+     * work and the session is gone on the next request. React Native has no
+     * cookie jar at all.
+     *
+     * It changes nothing for the web app: the hooks only engage when an
+     * Authorization header is present, and a browser keeps sending its cookie.
+     *
+     * The plugin does two things. Before a request, it converts the bearer
+     * token into the session cookie the rest of Better Auth expects, so every
+     * endpoint keeps working unchanged. After a sign-in, it returns the token
+     * in a `set-auth-token` response header for the client to store.
+     *
+     * `requireSignature` stays false to match how the cookie is issued; turning
+     * it on rejects tokens that were not signed, and would invalidate every
+     * token already handed out.
+     */
+    bearer(),
     username({
       displayUsernameValidator: (value) => DISPLAY_USERNAME_PATTERN.test(value),
       // Changing a username later is allowed, through updateUser. Set true if

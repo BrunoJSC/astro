@@ -10,6 +10,7 @@ import {
 import { Elysia } from "elysia";
 import { authPlugin } from "../../plugins/auth";
 import { getRealtime, kvPlugin } from "../../plugins/kv";
+import { authenticateSocket, tokenFromRequest } from "./authenticate";
 import { guildIdsFor } from "./authorize";
 import {
   type FrameContext,
@@ -75,13 +76,19 @@ const states = new Map<string, LiveSocket>();
  * A failed lookup does NOT close the socket. Only an explicit "there is no
  * session" does. A blip in Postgres would otherwise disconnect every client on
  * the node at once, turning a database hiccup into a thundering reconnect.
+ *
+ * `credential` is whichever header the socket authenticated with -- a cookie
+ * for the browser, an Authorization bearer for the desktop. Revalidating the
+ * same credential is the point: a token revoked server-side stops resolving
+ * exactly as a cleared cookie does.
  */
-function startSessionWatch(cookie: string, onRevoked: () => void): () => void {
+function startSessionWatch(
+  credential: Headers,
+  onRevoked: () => void
+): () => void {
   const timer = setInterval(async () => {
     try {
-      const result = await auth.api.getSession({
-        headers: new Headers({ cookie }),
-      });
+      const result = await auth.api.getSession({ headers: credential });
       if (!result?.session) {
         onRevoked();
       }
@@ -149,12 +156,20 @@ export const gatewayModule = new Elysia({ name: "module.gateway" })
     },
 
     async message(ws, frame) {
-      const { user } = ws.data;
       const state = states.get(ws.id);
 
-      // A frame arriving before `open` finished, or after the session watch
-      // closed the socket. Neither should reach a handler.
-      if (!(user && state)) {
+      /*
+       * Identity comes from `state`, not from `ws.data.user`.
+       *
+       * A bearer client has no cookie, so `ws.data.user` is null for it even
+       * though the socket is fully authenticated -- reading it here would
+       * reject every desktop frame. `open` resolved the user once, through
+       * either path, and stored it.
+       *
+       * An absent state means the frame arrived before `open` finished, or
+       * after the session watch closed the socket.
+       */
+      if (!state) {
         ws.close(UNAUTHORISED, "unauthorised");
         return;
       }
@@ -167,7 +182,7 @@ export const gatewayModule = new Elysia({ name: "module.gateway" })
         now: Date.now(),
         registry,
         state,
-        userId: user.id,
+        userId: state.socket.userId,
         ws,
       };
 
@@ -206,16 +221,18 @@ export const gatewayModule = new Elysia({ name: "module.gateway" })
     },
 
     async open(ws) {
-      const { user } = ws.data;
-
       /*
-       * The session comes from the upgrade request's cookies, which browsers
-       * send but cannot be replaced with a header -- the WebSocket API has no
-       * way to set one. Fine for `apps/web`; the desktop and native clients
-       * have no cookie jar for `tauri://localhost` and will need a token in the
-       * query string or a subprotocol. Not built yet.
+       * Cookie first, then the bearer subprotocol. The browser sends a cookie
+       * on the upgrade automatically; a Tauri window has no cookie jar for the
+       * API's origin, so it offers `["bearer", token]` instead. See
+       * `./authenticate`.
        */
-      if (!user) {
+      const identity = await authenticateSocket(
+        ws.data.request,
+        ws.data.user?.id
+      );
+
+      if (!identity) {
         send(ws, {
           code: "unauthorised",
           message: "No valid session",
@@ -225,26 +242,38 @@ export const gatewayModule = new Elysia({ name: "module.gateway" })
         return;
       }
 
+      const { userId } = identity;
+
       const { commands, nodeId, registry } = await getRealtime();
 
       const socket: GatewaySocket = {
         id: ws.id,
         send: (payload) => ws.send(payload as never),
-        userId: user.id,
+        userId,
       };
 
       await registry.add(socket);
 
       const sockets = await touchPresence(
         commands,
-        { socketId: ws.id, userId: user.id },
-        { clientType: "web", state: "online" }
+        { socketId: ws.id, userId },
+        {
+          clientType: identity.acceptedProtocol ? "desktop" : "web",
+          state: "online",
+        }
       );
 
       // Read once per connection and kept, so the disconnect path -- the one
       // that also runs for every client at once when a node dies -- needs no
       // query of its own.
-      const guildIds = await guildIdsFor(user.id);
+      const guildIds = await guildIdsFor(userId);
+
+      // Revalidate whatever the socket actually authenticated with, not
+      // whichever header happens to be present.
+      const token = tokenFromRequest(ws.data.request);
+      const credential = token
+        ? new Headers({ authorization: `Bearer ${token}` })
+        : new Headers({ cookie: ws.data.request.headers.get("cookie") ?? "" });
 
       states.set(ws.id, {
         guildIds,
@@ -253,20 +282,17 @@ export const gatewayModule = new Elysia({ name: "module.gateway" })
             process.stderr.write(`[gateway] heartbeat: ${describe(error)}\n`);
           },
           socketId: ws.id,
-          userId: user.id,
+          userId,
         }),
         socket,
-        stopWatch: startSessionWatch(
-          ws.data.request.headers.get("cookie") ?? "",
-          () => {
-            send(ws, {
-              code: "session_revoked",
-              message: "Session is no longer valid",
-              op: "error",
-            });
-            ws.close(UNAUTHORISED, "session_revoked");
-          }
-        ),
+        stopWatch: startSessionWatch(credential, () => {
+          send(ws, {
+            code: "session_revoked",
+            message: "Session is no longer valid",
+            op: "error",
+          });
+          ws.close(UNAUTHORISED, "session_revoked");
+        }),
         typingAt: new Map(),
       });
 
@@ -277,9 +303,9 @@ export const gatewayModule = new Elysia({ name: "module.gateway" })
        */
       if (sockets === 1) {
         await publishPresence(
-          { commands, guildIds, nodeId, userId: user.id },
+          { commands, guildIds, nodeId, userId },
           {
-            clientType: "web",
+            clientType: identity.acceptedProtocol ? "desktop" : "web",
             customStatus: null,
             lastActive: Date.now(),
             state: "online",
@@ -291,8 +317,29 @@ export const gatewayModule = new Elysia({ name: "module.gateway" })
         heartbeatIntervalMs: HEARTBEAT_INTERVAL_MS,
         op: "ready",
         socketId: ws.id,
-        userId: user.id,
+        userId,
       });
+    },
+
+    /*
+     * Echo the subprotocol the client offered.
+     *
+     * A browser fails the connection outright if the server selects a protocol
+     * that was not offered, and some clients are strict about the server
+     * selecting nothing when they did offer. Echoing the marker -- never the
+     * token half -- is the correct answer.
+     *
+     * This grants nothing: it happens before the session is resolved, and a
+     * socket whose token turns out to be invalid is closed in `open`.
+     *
+     * Mutates `set.headers` rather than returning them, because Elysia's Bun
+     * adapter ignores the return value of a function-form `upgrade` and reads
+     * the context it was given.
+     */
+    upgrade({ request, set }) {
+      if (tokenFromRequest(request)) {
+        set.headers["sec-websocket-protocol"] = "bearer";
+      }
     },
   });
 
