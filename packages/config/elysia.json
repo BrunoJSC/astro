@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "display": "Elysia (Bun)",
+  "extends": "./base.json",
+  "compilerOptions": {
+    "target": "ESNext",
+    "lib": ["ESNext"],
+    "types": ["bun"],
+    "noEmit": true,
+    "declaration": false,
+    "declarationMap": false
+  }
+}
