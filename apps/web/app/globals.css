@@ -1,0 +1,12 @@
+/*
+ * The design system's tokens, variants and base layer. Everything the app
+ * styles with resolves from here -- see packages/ui/src/styles/globals.css.
+ */
+@import "@repo/ui/styles";
+
+/*
+ * Tailwind v4 scans only the paths it is told about. `@repo/ui` declares its
+ * own components; this app declares its own tree, or the classes written in
+ * these files never make it into the output.
+ */
+@source ".";

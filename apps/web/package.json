@@ -1,0 +1,44 @@
+{
+  "name": "@repo/web",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Next.js App Router front-end",
+  "scripts": {
+    "dev": "next dev --turbopack --port 3000",
+    "build": "next build",
+    "start": "next start --port 3000",
+    "check-types": "tsc --noEmit",
+    "clean": "rm -rf .turbo .next node_modules *.tsbuildinfo"
+  },
+  "dependencies": {
+    "@repo/auth": "workspace:*",
+    "@repo/env": "workspace:*",
+    "@repo/server": "workspace:*",
+    "@repo/ui": "workspace:*",
+    "@tanstack/react-form": "catalog:",
+    "@tanstack/react-query": "catalog:web",
+    "@tiptap/core": "catalog:editor",
+    "@tiptap/extension-emoji": "catalog:editor",
+    "@tiptap/pm": "catalog:editor",
+    "@tiptap/react": "catalog:editor",
+    "@tiptap/starter-kit": "catalog:editor",
+    "@tiptap/suggestion": "catalog:editor",
+    "frimousse": "catalog:editor",
+    "next": "catalog:web",
+    "react": "catalog:",
+    "react-dom": "catalog:",
+    "zod": "catalog:",
+    "zustand": "catalog:"
+  },
+  "devDependencies": {
+    "@repo/config": "workspace:*",
+    "@tailwindcss/postcss": "catalog:ui",
+    "@types/node": "^22.15.0",
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "postcss": "catalog:ui",
+    "tailwindcss": "catalog:ui",
+    "typescript": "catalog:"
+  }
+}

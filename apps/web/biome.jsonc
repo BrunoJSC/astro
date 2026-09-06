@@ -1,0 +1,20 @@
+{
+  "$schema": "../../node_modules/@biomejs/biome/configuration_schema.json",
+  // Nested config: "//" pulls in the repo root's rules, then the React and
+  // Next presets layer on the rules that only make sense here -- hook
+  // correctness (useExhaustiveDependencies, useHookAtTopLevel) and the
+  // Server/Client boundary (noNextAsyncClientComponent, noImgElement).
+  "root": false,
+  "extends": [
+    "../../biome.jsonc",
+    "ultracite/biome/react",
+    "ultracite/biome/next"
+  ],
+  // Without this the inherited `files.includes` from the root config are
+  // re-resolved against this directory and exclude everything -- Biome then
+  // reports "Checked 0 files" and the whole package silently stops being linted.
+  // The Tailwind entry point is excluded here too: a nested `includes`
+  // replaces the inherited one rather than merging with it, so the root
+  // config's exclusion does not carry down.
+  "files": { "includes": ["**", "!**/globals.css"] }
+}
