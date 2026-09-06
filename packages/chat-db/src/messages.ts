@@ -14,10 +14,23 @@ export interface ChatMessage {
 }
 
 export interface MessagePage {
-  /** Pass back as `before` for the next page. Null when history is exhausted. */
+  /**
+   * True when the walk stopped because it hit `maxBucketsScanned`.
+   *
+   * The only thing this read can honestly report. A bounded backwards walk can
+   * never prove that no older message exists -- it can only say whether it
+   * stopped because it ran out of budget or because it had enough.
+   */
+  boundReached: boolean;
+  /**
+   * Pass back as `before` for the next page.
+   *
+   * Null when this page collected nothing. That is NOT "no more history" --
+   * when `boundReached` is true it means the walk gave up before finding any,
+   * and the caller resumes by repeating the same `before` with a larger
+   * `maxBucketsScanned`.
+   */
   cursor: types.TimeUuid | null;
-  /** False when the walk stopped at the bucket limit, not at the true start. */
-  exhausted: boolean;
   messages: readonly ChatMessage[];
 }
 
@@ -50,9 +63,12 @@ const INSERT = `
  * enough or gives up.
  *
  * `maxBucketsScanned` bounds the walk. Without it, a channel dormant for two
- * years issues one query per empty month and the request never returns. When
- * the bound is hit, `exhausted` is false: the caller knows the answer is "no
- * more found HERE", not "no more exists", and can resume with the cursor.
+ * years issues one query per empty month and the request never returns.
+ *
+ * The bound is why the result reports `boundReached` rather than anything
+ * shaped like "that was all". This read cannot know it reached the start of
+ * history; it can only say whether it stopped for lack of budget or because
+ * the page was full.
  */
 export async function getChannelMessages(
   client: Client,
@@ -108,8 +124,8 @@ export async function getChannelMessages(
 
   const last = collected.at(-1);
   return {
+    boundReached: scanned >= maxBuckets,
     cursor: collected.length > 0 && last ? last.messageId : null,
-    exhausted: scanned < maxBuckets,
     messages: collected,
   };
 }

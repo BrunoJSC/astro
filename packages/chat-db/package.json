@@ -15,9 +15,10 @@
     "scylla:cqlsh": "docker compose exec scylla cqlsh",
     "scylla:down": "docker compose down -v",
     "scylla:up": "docker compose up -d --wait",
-    "test": "bun test tests/unit",
+    "test": "bun run test:unit && bun run test:integration",
+    "test:integration": "bun test tests/integration",
     "test:unit": "bun test tests/unit",
-    "validate:cql": "./scripts/validate.sh"
+    "validate:cql": "docker compose up -d --wait && bun test tests/integration"
   },
   "dependencies": {
     "@repo/env": "workspace:*",

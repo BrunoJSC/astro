@@ -32,10 +32,16 @@ export interface MentionRecord {
 }
 
 export interface MentionPage {
-  /** Pass back as `before` for the next page. Null when the inbox is drained. */
+  /** True when the walk stopped because it hit `maxBucketsScanned`. */
+  boundReached: boolean;
+  /**
+   * Pass back as `before` for the next page.
+   *
+   * Null when this page collected nothing, which is not the same as an empty
+   * inbox: with `boundReached` true the walk gave up first, and the caller
+   * resumes by repeating `before` with a larger `maxBucketsScanned`.
+   */
   cursor: types.TimeUuid | null;
-  /** False when the walk stopped at the bucket limit, not at the true start. */
-  exhausted: boolean;
   mentions: readonly MentionRecord[];
 }
 
@@ -163,9 +169,21 @@ export async function getMessageMentions(
     return null;
   }
 
+  /*
+   * Mapped to strings, not cast to them.
+   *
+   * The driver hands back `Uuid` instances for a `set<uuid>`, and a cast would
+   * only silence the compiler. The consequence is not cosmetic: the role
+   * badge is computed by intersecting `mentionedRoles` with the reader's roles
+   * from Postgres, which are strings, and an array of `Uuid` objects never
+   * matches one -- so the badge would silently never light up.
+   */
+  const ids = (value: unknown): string[] =>
+    Array.isArray(value) ? value.map(String) : [];
+
   return {
-    mentionedRoles: (row.mentioned_roles as string[] | null) ?? [],
-    mentionedUsers: (row.mentioned_users as string[] | null) ?? [],
+    mentionedRoles: ids(row.mentioned_roles),
+    mentionedUsers: ids(row.mentioned_users),
     mentionsEveryone: Boolean(row.mentions_everyone),
   };
 }
@@ -176,8 +194,9 @@ export async function getMessageMentions(
  * Same bounded backwards walk as `getChannelMessages`, and for the same reason:
  * a page can straddle a month boundary, and a user with no mentions for two
  * years would otherwise issue one query per empty bucket and never return.
- * `exhausted: false` means "nothing more found within the bound", not "nothing
- * more exists" -- resume with the cursor.
+ *
+ * `boundReached` is the honest half of the answer: this read cannot know it
+ * reached the start of the inbox, only whether it ran out of budget.
  */
 export async function getUserMentions(
   client: Client,
@@ -225,8 +244,8 @@ export async function getUserMentions(
 
   const last = collected.at(-1);
   return {
+    boundReached: scanned >= maxBuckets,
     cursor: collected.length > 0 && last ? last.messageId : null,
-    exhausted: scanned < maxBuckets,
     mentions: collected,
   };
 }

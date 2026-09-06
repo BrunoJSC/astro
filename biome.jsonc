@@ -75,11 +75,15 @@
   },
   "overrides": [
     {
-      // The bucket walk is sequential by nature: each iteration decides whether
-      // to continue from the rows the previous one returned, and stops as soon
-      // as it has enough. Running the queries in parallel would issue reads for
-      // partitions the walk was about to skip.
-      "includes": ["packages/chat-db/src/**"],
+      // Two sequential-by-nature loops. The bucket walk decides each iteration
+      // from the rows the previous one returned, and stops as soon as it has
+      // enough -- in parallel it would issue reads for partitions it was about
+      // to skip. Applying CQL is ordered by definition: the keyspace has to
+      // exist before the tables in it.
+      "includes": [
+        "packages/chat-db/src/**",
+        "packages/chat-db/tests/integration/**"
+      ],
       "linter": {
         "rules": {
           "performance": {

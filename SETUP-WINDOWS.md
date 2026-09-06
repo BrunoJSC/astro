@@ -2,8 +2,8 @@
 
 This repository was written on a borrowed macOS 12 machine with no Docker and no
 Rust. Most of it has never been executed — the exceptions are `@repo/kv`, whose
-Lua was verified against a Redis built from source, and the desktop app's
-credential storage. Windows 11 is where
+Lua ran against a Redis built from source; `@repo/chat-db`, whose CQL ran
+against an Apache Cassandra node; and the desktop app's credential storage. Windows 11 is where
 that changes — every blocker below is a limitation of the machine it was written
 on, not of the code.
 
@@ -86,11 +86,11 @@ cd ..\chat-db
 docker compose up -d --wait   # ScyllaDB on 9042 — first pull is ~400MB
 ```
 
-Then load the CQL schema. `validate.sh` is bash and will not run under
-PowerShell — use **Git Bash**, which ships with Git for Windows:
+Then load the CQL schema. Cross-platform, no Git Bash needed:
 
-```bash
-cd packages/chat-db && bun run validate:cql
+```powershell
+cd packages\chat-db
+bun run validate:cql
 ```
 
 Postgres migrations go to Neon:
@@ -127,8 +127,8 @@ private networks only.
 
 ## What to verify first
 
-Ordered so a failure in one does not mask the next. Only step 1 has ever been
-executed; the rest is the backlog.
+Ordered so a failure in one does not mask the next. Steps 1 and 2 have been
+executed against real servers; 3 to 5 are the backlog.
 
 ### 1. The Lua in `@repo/kv` — re-run, do not re-verify
 
@@ -148,18 +148,28 @@ answers, so it is safe to run before Docker is up.
 What to watch for is a difference from macOS, not a first result: Valkey rather
 than Redis, and a Windows Docker network in front of it.
 
-### 2. The CQL in `@repo/chat-db`
+### 2. The CQL in `@repo/chat-db` — re-run, do not re-verify
 
-Never applied to a live node. In Git Bash:
+Already applied to a live node: 50 integration tests over the schema as the
+server reports it, the bucket walk across real partitions, reaction grouping,
+mention fan-out and both log tables.
 
-```bash
-cd packages/chat-db && bun run validate:cql
+```powershell
+cd packages\chat-db
+bun run validate:cql
 ```
 
-Watch for one line: `PASS  null in a clustering column is rejected`. The
-reactions table exists in its current shape *because* of that rule. If it ever
-reports FAIL, the single-column `emoji_key` design has stopped being load-bearing
-and the long comment in `cql/004_reactions_mentions.cql` is stale.
+**Run here against Apache Cassandra, not Scylla.** Scylla is Linux-only and the
+machine this was written on had no Docker, so the CQL was applied to the engine
+Scylla maintains compatibility with. `docker compose up` points the same suite
+at real Scylla, and that is what step 2 is actually for — anything
+Scylla-specific (compaction behaviour, shard-per-core routing) has still never
+been exercised.
+
+Watch for one assertion: `REFUSES null in a clustering column`. The reactions
+table exists in its current shape *because* of that rule. If it ever passes,
+the single-column `emoji_key` design has stopped being load-bearing and the
+long comment in `cql/004_reactions_mentions.cql` is stale.
 
 ### 3. The gateway, with TWO server processes
 
@@ -227,11 +237,9 @@ Two things will come up:
 
 ## Windows-specific notes
 
-**One `.sh` script needs Git Bash or WSL.**
-`packages/chat-db/scripts/validate.sh` is the only bash left in the repo — it
-drives `docker compose exec` to load CQL and has no equivalent yet. The kv one
-is gone: its assertions became `packages/kv/tests/integration/`, and
-`validate:kv` is now plain `docker compose` plus `bun test`.
+**No bash anywhere.** Both `validate.sh` scripts are gone: their assertions
+became integration test suites, and `validate:kv` and `validate:cql` are now
+`docker compose` plus `bun test`. Nothing in this repository needs Git Bash.
 
 **Everything else in `package.json` is cross-platform.** Bun uses its own shell
 for `bun run` scripts on Windows, so `rm -rf` in the `clean` scripts works

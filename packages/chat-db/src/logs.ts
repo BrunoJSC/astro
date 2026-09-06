@@ -36,9 +36,17 @@ export async function writeAuditLog(
     targetId: string | null;
     /** Serialised here, not by the caller, so the column is never half-encoded. */
     changes: unknown;
+    /**
+     * Supply one to preserve an original timestamp -- an import, a replay, a
+     * backfill. Generated when absent, which is the live path.
+     *
+     * It is what decides the bucket, so a caller that mints an id and passes it
+     * minutes later across a month boundary still lands in the right partition.
+     */
+    logId?: types.TimeUuid;
   }
 ): Promise<types.TimeUuid> {
-  const logId = types.TimeUuid.now();
+  const logId = entry.logId ?? types.TimeUuid.now();
   await client.execute(
     INSERT_AUDIT,
     [
@@ -99,9 +107,11 @@ export async function writeModerationLog(
     reason: string | null;
     /** Null for permanent actions. bigint because a ban can outlive an int. */
     durationSeconds: bigint | null;
+    /** Supply one to preserve an original timestamp. See `writeAuditLog`. */
+    logId?: types.TimeUuid;
   }
 ): Promise<types.TimeUuid> {
-  const logId = types.TimeUuid.now();
+  const logId = entry.logId ?? types.TimeUuid.now();
   await client.execute(
     INSERT_MOD,
     [

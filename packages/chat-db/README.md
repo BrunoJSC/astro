@@ -9,39 +9,27 @@ volume, append-mostly, read by partition, never joined.
 
 ---
 
-## Status: the CQL has not run against a live node yet
+## Verified against a live node
 
-**Read this before trusting anything below.**
-
-The schema in `cql/` was written and reviewed but has never been applied to a
-running ScyllaDB. It was authored on a borrowed machine with no Docker, no
-Homebrew and no JDK, and ScyllaDB does not run natively on macOS — it is
-Linux-only, so a container is the only option and there was none available.
-
-What that means concretely:
-
-| Checked | How |
-| --- | --- |
-| TypeScript wrappers, bucket arithmetic, emoji-key encoding, mention fan-out | 26 unit tests against a fake client — `bun test` |
-| CQL syntax, primary keys, clustering order, compaction settings | **not yet** — needs a node |
-
-So the first thing to do on a machine with Docker is run the harness below. It
-is written to fail loudly rather than quietly, and it asserts the specific
-things that are easy to get wrong and impossible to check by reading.
+The CQL applies and the wrappers work: 50 integration tests in
+`tests/integration/`, covering the schema as the server reports it, the bucket
+walk across real partitions, reaction grouping, mention fan-out and both log
+tables.
 
 ```bash
-cd packages/chat-db && bun run validate:cql
+bun run validate:cql    # starts the server, runs the suite
+bun test tests/unit     # no server needed
 ```
 
-That brings up a throwaway single-node Scylla, loads all four CQL files in
-order, runs the assertions, prints the schema as the server actually
-interpreted it, and tears everything down. First run pulls ~400MB and takes
-about a minute before CQL is served; after that it is seconds.
+The suite **skips**, with an instruction, when nothing answers on 9042, so it is
+safe to run anywhere.
 
-`bun run validate:cql -- --keep` leaves the node up so you can poke at it with
-`bun run scylla:cqlsh`.
-
-If it passes, delete this section — it will have done its job.
+**Run here against Apache Cassandra 5.0.9, not Scylla.** Scylla is Linux-only
+and the machine this was written on had no Docker, so the CQL was applied to the
+engine Scylla maintains compatibility with. Everything asserted is portable
+between them; what is *not* covered is anything Scylla-specific — compaction
+behaviour under load, shard-per-core routing, its own tuning. `docker compose up`
+points the same suite at real Scylla.
 
 ---
 

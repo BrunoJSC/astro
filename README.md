@@ -97,11 +97,11 @@ on two of three platforms, and voice is already in the schema. Electron bundles
 Chromium, and its `safeStorage` replaced the plaintext token file.
 `apps/desktop/README.md` has the trade-offs and what is still unbuilt.
 
-**The CQL has not run against a live ScyllaDB yet.** It was written on a
-machine without Docker, and Scylla is Linux-only so there was no way to apply
-it. `packages/chat-db/README.md` explains what that leaves unverified, and
-`cd packages/chat-db && bun run validate:cql` brings up a throwaway node,
-loads the schema and asserts it. Run that first on a machine with Docker.
+**The CQL is verified, against Cassandra rather than Scylla.** 50 integration
+tests apply the schema and exercise the wrappers; Scylla is Linux-only, so the
+engine it maintains CQL compatibility with stood in. `bun run validate:cql`
+points the same suite at real Scylla, which is still worth doing —
+Scylla-specific behaviour is not covered.
 
 **Every pull request gets its own database.** `.github/workflows/preview-db.yml`
 creates a schema-only Neon branch, migrates it, and deletes it on close.
