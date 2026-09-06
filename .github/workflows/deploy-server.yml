@@ -19,11 +19,27 @@ jobs:
       name: production-server
       url: ${{ vars.SERVER_URL }}
     steps:
+      - name: Check whether deployment is configured
+        id: guard
+        env:
+          TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+        # Skip instead of fail when the credentials are absent. Deploy secrets
+        # arrive after the workflow does, and a red main on every merge until
+        # then trains people to ignore red -- which is worse than no deploy.
+        run: |
+          if [ -z "$TOKEN" ]; then
+            echo "::notice::RAILWAY_TOKEN is not set — skipping the deploy."
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.event.workflow_run.head_sha }}
 
       - name: Deploy
+        if: steps.guard.outputs.ready == 'true'
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
         # `up` uploads this repo's source; Railway builds it. `--ci` keeps the
@@ -31,6 +47,7 @@ jobs:
         run: bunx -y @railway/cli@latest up --service ${{ vars.RAILWAY_SERVICE }} --ci
 
       - name: Wait for the health probe
+        if: steps.guard.outputs.ready == 'true'
         env:
           SERVER_URL: ${{ vars.SERVER_URL }}
         # A deploy that returns 0 is not a deploy that serves traffic. The API

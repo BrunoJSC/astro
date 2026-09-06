@@ -26,6 +26,21 @@ jobs:
       VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
       VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
     steps:
+      - name: Check whether deployment is configured
+        id: guard
+        env:
+          TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        # Skip instead of fail when the credentials are absent. Deploy secrets
+        # arrive after the workflow does, and a red main on every merge until
+        # then trains people to ignore red -- which is worse than no deploy.
+        run: |
+          if [ -z "$TOKEN" ]; then
+            echo "::notice::VERCEL_TOKEN is not set — skipping the deploy."
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - uses: actions/checkout@v4
         with:
           # workflow_run checks out the default branch head, not the commit that
@@ -33,18 +48,22 @@ jobs:
           ref: ${{ github.event.workflow_run.head_sha }}
 
       - uses: oven-sh/setup-bun@v2
+        if: steps.guard.outputs.ready == 'true'
         with:
           bun-version: 1.4.1
 
       - name: Pull the project configuration
+        if: steps.guard.outputs.ready == 'true'
         run: bunx vercel@latest pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
 
       - name: Build
+        if: steps.guard.outputs.ready == 'true'
         # Built here rather than on Vercel so the artifact comes from the same
         # commit CI verified, with this repo's bun install and turbo cache.
         run: bunx vercel@latest build --prod --token=${{ secrets.VERCEL_TOKEN }}
 
       - name: Deploy
+        if: steps.guard.outputs.ready == 'true'
         id: deploy
         run: |
           url=$(bunx vercel@latest deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }})
