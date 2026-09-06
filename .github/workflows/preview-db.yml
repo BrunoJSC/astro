@@ -1,0 +1,129 @@
+# Ephemeral Neon branch per pull request.
+#
+# Each PR gets its own database branch, migrated with the PR's own schema, so
+# migrations are exercised against a real Postgres before they reach main --
+# and never against production data.
+#
+# Requires two repository secrets:
+#   NEON_API_KEY      - from the Neon console, Account settings > API keys
+#   NEON_PROJECT_ID   - from the project's Settings page
+name: Preview database
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, closed]
+
+concurrency:
+  # One run per PR: a second push must not race the first one's migration.
+  group: preview-db-${{ github.event.number }}
+  cancel-in-progress: false
+
+env:
+  NEON_CLI_VERSION: 4.14.1
+  BRANCH_NAME: preview/pr-${{ github.event.number }}
+
+jobs:
+  migrate:
+    if: github.event.action != 'closed'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.1
+
+      - run: bun install --frozen-lockfile
+
+      - name: Create or reuse the Neon branch
+        id: branch
+        env:
+          NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+          NEON_PROJECT_ID: ${{ secrets.NEON_PROJECT_ID }}
+        run: |
+          set -euo pipefail
+
+          # `--schema-only` copies the structure without the rows: the branch is
+          # created in seconds regardless of production size, and no customer
+          # data is ever exposed to a preview environment.
+          #
+          # `--expires-at` is the safety net. The cleanup job below deletes the
+          # branch on PR close, but a force-pushed or abandoned PR can skip it;
+          # an expiry means an orphan disappears on its own instead of billing
+          # forever.
+          if ! bunx neon@"$NEON_CLI_VERSION" branches get "$BRANCH_NAME" \
+              --project-id "$NEON_PROJECT_ID" >/dev/null 2>&1; then
+            bunx neon@"$NEON_CLI_VERSION" branches create \
+              --project-id "$NEON_PROJECT_ID" \
+              --name "$BRANCH_NAME" \
+              --schema-only \
+              --expires-at "$(date -u -d '+7 days' +%Y-%m-%dT%H:%M:%SZ)"
+          fi
+
+          # Two URLs, and the difference matters: migrations need the direct
+          # endpoint because Neon's pooler runs PgBouncer in transaction mode,
+          # where DDL and advisory locks do not behave.
+          {
+            echo "direct_url=$(bunx neon@"$NEON_CLI_VERSION" connection-string "$BRANCH_NAME" \
+              --project-id "$NEON_PROJECT_ID")"
+            echo "pooled_url=$(bunx neon@"$NEON_CLI_VERSION" connection-string "$BRANCH_NAME" \
+              --project-id "$NEON_PROJECT_ID" --pooled)"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Apply migrations
+        env:
+          # DATABASE_URL is set only because @repo/env validates the whole
+          # server schema as a unit; drizzle-kit itself reads DIRECT_URL.
+          DATABASE_URL: ${{ steps.branch.outputs.pooled_url }}
+          DIRECT_URL: ${{ steps.branch.outputs.direct_url }}
+          # @repo/env validates the whole server schema as a unit, so these two
+          # must be present even though drizzle-kit never reads them. A literal
+          # placeholder, deliberately: reusing a real secret here would spread it
+          # to a job that has no use for it.
+          BETTER_AUTH_SECRET: migrations-do-not-read-this-value-000000
+          BETTER_AUTH_URL: http://localhost:3001
+        run: bun run db:migrate
+
+      - name: Report the schema delta
+        env:
+          NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+          NEON_PROJECT_ID: ${{ secrets.NEON_PROJECT_ID }}
+        run: |
+          set -euo pipefail
+
+          # The default branch is NOT always called "main" -- Neon names it after
+          # the project template, and `production` is common. Resolve it instead
+          # of guessing, or the step fails with "Branch main not found".
+          #
+          # `^parent` is not an option either: a `--schema-only` branch is created
+          # with init_source=parent-schema and no parent_id, so the shorthand
+          # reports "Branch has no parent".
+          DEFAULT_BRANCH=$(bunx neon@"$NEON_CLI_VERSION" branches list \
+            --project-id "$NEON_PROJECT_ID" --output json \
+            | bun -e 'const l = await Bun.stdin.json(); process.stdout.write(l.find((b) => b.default)?.name ?? "")')
+
+          # What the migration actually changed, against that branch.
+          bunx neon@"$NEON_CLI_VERSION" branches schema-diff "$DEFAULT_BRANCH" "$BRANCH_NAME" \
+            --project-id "$NEON_PROJECT_ID" >> "$GITHUB_STEP_SUMMARY" || true
+
+  cleanup:
+    if: github.event.action == 'closed'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.1
+
+      - name: Delete the Neon branch
+        env:
+          NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+          NEON_PROJECT_ID: ${{ secrets.NEON_PROJECT_ID }}
+        # Never fail the workflow here: the branch may already be gone, and a
+        # red check on a merged PR helps nobody. The `--expires-at` above is
+        # what guarantees eventual cleanup.
+        run: |
+          bunx neon@"$NEON_CLI_VERSION" branches delete "$BRANCH_NAME" \
+            --project-id "$NEON_PROJECT_ID" || true
