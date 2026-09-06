@@ -1,0 +1,73 @@
+# Production migrations. Manual, and gated behind an approval.
+#
+# DDL against production is the one irreversible step in this pipeline: a
+# dropped column does not come back from a redeploy. So it never runs on merge
+# -- a human dispatches it and a reviewer approves, after the same migration has
+# already been applied and diffed on the PR's preview branch.
+#
+# Ordering matters, and the pipeline does NOT enforce it: deploys are automatic
+# on merge while this is manual, so the two are decoupled in time. Write
+# migrations expand-then-contract -- add the column, ship the code that fills
+# it, drop the old one in a later release -- so either order is survivable.
+name: Migrate production
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type the project name to confirm'
+        required: true
+        type: string
+
+concurrency:
+  # Two concurrent migrations against one database is how a half-applied schema
+  # happens. Never cancel a running one: it would leave it half-applied too.
+  group: migrate-production
+  cancel-in-progress: false
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    # Configure this environment with required reviewers in the repo settings.
+    # Without that, the approval gate does not exist and this is just a manual
+    # button.
+    environment: production
+    steps:
+      - name: Check the confirmation
+        if: inputs.confirm != 'astro'
+        run: |
+          echo "::error::Confirmation did not match the project name."
+          exit 1
+
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.1
+      - run: bun install --frozen-lockfile
+
+      - name: Show what will be applied
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          DIRECT_URL: ${{ secrets.DIRECT_URL }}
+          BETTER_AUTH_SECRET: migrations-do-not-read-this-value-000000
+          BETTER_AUTH_URL: http://localhost:3001
+        # Printed to the summary before the write, so the approval record shows
+        # what was approved.
+        run: |
+          {
+            echo '## Pending migrations'
+            echo '```sql'
+            cat packages/db/drizzle/*.sql
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Apply
+        env:
+          # DIRECT_URL bypasses Neon's pooler: PgBouncer in transaction mode
+          # cannot hold the advisory lock or the multi-statement transaction a
+          # migration needs.
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          DIRECT_URL: ${{ secrets.DIRECT_URL }}
+          BETTER_AUTH_SECRET: migrations-do-not-read-this-value-000000
+          BETTER_AUTH_URL: http://localhost:3001
+        run: bun run db:migrate

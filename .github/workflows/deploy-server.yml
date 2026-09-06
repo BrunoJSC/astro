@@ -1,0 +1,49 @@
+# apps/server to Railway, after CI is green on main.
+name: Deploy server
+
+on:
+  workflow_run:
+    workflows: [CI]
+    branches: [main]
+    types: [completed]
+
+concurrency:
+  group: deploy-server
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    if: github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    environment:
+      name: production-server
+      url: ${{ vars.SERVER_URL }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      - name: Deploy
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+        # `up` uploads this repo's source; Railway builds it. `--ci` keeps the
+        # command from waiting on an interactive log stream.
+        run: bunx -y @railway/cli@latest up --service ${{ vars.RAILWAY_SERVICE }} --ci
+
+      - name: Wait for the health probe
+        env:
+          SERVER_URL: ${{ vars.SERVER_URL }}
+        # A deploy that returns 0 is not a deploy that serves traffic. The API
+        # exposes /health for exactly this; without the check a broken release
+        # is only noticed by users.
+        run: |
+          for i in $(seq 1 30); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' "$SERVER_URL/health" || true)
+            if [ "$code" = "200" ]; then
+              echo "healthy after ${i} attempts" >> "$GITHUB_STEP_SUMMARY"
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "::error::/health never returned 200 — the release is up but not serving."
+          exit 1

@@ -1,0 +1,53 @@
+# apps/native through EAS Build.
+#
+# Never on push: a native build takes tens of minutes and consumes EAS build
+# credits, so it is dispatched deliberately or cut from a tag.
+name: Build native
+
+on:
+  workflow_dispatch:
+    inputs:
+      platform:
+        description: Platform to build
+        required: true
+        default: all
+        type: choice
+        options: [all, ios, android]
+      profile:
+        description: EAS build profile
+        required: true
+        default: preview
+        type: choice
+        options: [development, preview, production]
+  push:
+    tags: ['native-v*']
+
+concurrency:
+  group: build-native-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.1
+      - run: bun install --frozen-lockfile
+
+      - name: Build
+        working-directory: apps/native
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          # Inlined by Metro at build time, so it must be present here and not
+          # only on the EAS side.
+          EXPO_PUBLIC_API_URL: ${{ vars.EXPO_PUBLIC_API_URL }}
+        # `--no-wait` returns once the build is queued: the runner does not sit
+        # idle for the twenty-plus minutes EAS takes.
+        run: |
+          bunx eas-cli@latest build \
+            --platform ${{ inputs.platform || 'all' }} \
+            --profile ${{ inputs.profile || 'preview' }} \
+            --non-interactive \
+            --no-wait

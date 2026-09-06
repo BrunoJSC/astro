@@ -20,3 +20,30 @@ Denial of service through infinite loops in the ICNS, JXL and HEIF parsers.
   assets; it is not in the shipped app, and does not process untrusted input.
 - **Remove when:** Metro ships a release depending on `image-size` > 2.0.2.
   Check with `bun audit fix --dry-run`.
+
+---
+
+# Deploy secrets
+
+The deploy workflows fail loudly without these. Set them with
+`gh secret set <NAME>` / `gh variable set <NAME>`.
+
+| Name | Kind | Used by |
+|---|---|---|
+| `NEON_API_KEY` | secret | preview-db |
+| `NEON_PROJECT_ID` | secret | preview-db |
+| `DATABASE_URL` | secret | migrate |
+| `DIRECT_URL` | secret | migrate — the non-pooled endpoint |
+| `VERCEL_TOKEN` | secret | deploy-web |
+| `VERCEL_ORG_ID` | secret | deploy-web |
+| `VERCEL_PROJECT_ID` | secret | deploy-web |
+| `RAILWAY_TOKEN` | secret | deploy-server |
+| `RAILWAY_SERVICE` | variable | deploy-server |
+| `SERVER_URL` | variable | deploy-server — the health probe target |
+| `EXPO_TOKEN` | secret | build-native |
+| `EXPO_PUBLIC_API_URL` | variable | build-native — inlined into the bundle |
+
+`migrate` also needs a `production` environment with required reviewers, and
+`deploy-web` / `deploy-server` a `production-web` / `production-server`
+environment. Without the reviewers configured, the approval gate does not
+exist — the workflow still runs, just unguarded.
