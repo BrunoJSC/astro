@@ -1,0 +1,104 @@
+# Quality gates for every pull request, and for main after merge.
+#
+# The jobs mirror what the pre-push hook runs locally, so a green hook means a
+# green CI -- with one difference that matters: the hook runs against whatever
+# is installed, while `--frozen-lockfile` here fails if bun.lock and the
+# package.json files disagree.
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  # A new push supersedes the previous run on the same ref. Not applied to main:
+  # cancelling a run there would leave the branch without a verdict.
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  BUN_VERSION: 1.4.1
+  # Placeholders. @repo/env validates the whole server schema as a unit at
+  # build time (next.config.ts) and at import time, so these must parse -- but
+  # nothing in CI connects to a database: the tests seed their own values in
+  # tests/setup.ts and the builds never open a connection.
+  DATABASE_URL: postgres://postgres:postgres@localhost:5432/ci
+  DIRECT_URL: postgres://postgres:postgres@localhost:5432/ci
+  BETTER_AUTH_SECRET: ci-placeholder-with-at-least-thirty-two-chars
+  BETTER_AUTH_URL: http://localhost:3001
+  NEXT_PUBLIC_API_URL: http://localhost:3001
+  EXPO_PUBLIC_API_URL: http://localhost:3001
+
+jobs:
+  quality:
+    name: lint + types
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+      - uses: actions/cache@v4
+        with:
+          key: turbo-quality-${{ github.sha }}
+          path: .turbo
+          restore-keys: turbo-quality-
+      - run: bun install --frozen-lockfile
+      # Biome reads the whole repo in one pass; running it per package would be
+      # slower and would report the same finding several times.
+      - run: bun run lint
+      - run: bun run check-types
+
+  test:
+    name: tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+      - uses: actions/cache@v4
+        with:
+          key: turbo-test-${{ github.sha }}
+          path: .turbo
+          restore-keys: turbo-test-
+      - run: bun install --frozen-lockfile
+      # bun test for the unit suites, vitest for the integration ones. The two
+      # runners read disjoint folders (tests/unit vs tests/integration) because
+      # vitest would otherwise try to execute files importing `bun:test`.
+      - run: bun run test
+
+  build:
+    name: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+      - uses: actions/cache@v4
+        with:
+          key: turbo-build-${{ github.sha }}
+          path: .turbo
+          restore-keys: turbo-build-
+      - uses: actions/cache@v4
+        with:
+          key: next-${{ hashFiles('bun.lock') }}-${{ github.sha }}
+          path: apps/web/.next/cache
+          restore-keys: next-${{ hashFiles('bun.lock') }}-
+      - run: bun install --frozen-lockfile
+      - run: bun run build
+
+  security:
+    name: audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+      - run: bun install --frozen-lockfile
+      # Gated at high severity, with the accepted advisories listed in
+      # SECURITY-EXCEPTIONS.md and passed as --ignore in the root script.
+      - run: bun run security:check

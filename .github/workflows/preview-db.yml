@@ -36,6 +36,12 @@ jobs:
         with:
           bun-version: 1.4.1
 
+      - uses: actions/cache@v4
+        with:
+          key: bun-${{ hashFiles('bun.lock') }}
+          path: ~/.bun/install/cache
+          restore-keys: bun-
+
       - run: bun install --frozen-lockfile
 
       - name: Create or reuse the Neon branch
@@ -108,6 +114,15 @@ jobs:
           # What the migration actually changed, against that branch.
           bunx neon@"$NEON_CLI_VERSION" branches schema-diff "$DEFAULT_BRANCH" "$BRANCH_NAME" \
             --project-id "$NEON_PROJECT_ID" >> "$GITHUB_STEP_SUMMARY" || true
+
+      - name: Comment the branch name on the PR
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        # The NAME only. A connection string in a PR comment is a credential in
+        # a permanent, notification-emailing, forkable log.
+        run: |
+          gh pr comment "${{ github.event.number }}" --edit-last --create-if-none --body \
+            "Preview database: \`$BRANCH_NAME\` — migrated, deleted when this PR closes." || true
 
   cleanup:
     if: github.event.action == 'closed'
