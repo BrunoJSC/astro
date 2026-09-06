@@ -25,13 +25,18 @@ import { auth } from "@repo/auth/server";
 const SUBPROTOCOL = "bearer";
 
 /**
- * RFC 6455 says a subprotocol is a `token` -- the HTTP token charset.
+ * The transported value is base64url, and it has to be.
  *
- * Enforced rather than trusted: the value reaches Better Auth, and anything
- * outside this set is either a malformed client or someone probing. Better Auth
- * tokens are base64url with a `.` separator, all of which is inside it.
+ * A subprotocol is an RFC 7230 `token`, whose charset excludes `=` -- and a
+ * Better Auth session token is base64 WITH padding, so it ends in one. The
+ * browser refuses to build the socket at all: `new WebSocket(url, ["bearer",
+ * "abc="])` throws `SyntaxError: Wrong protocol`. Measured, not assumed.
+ *
+ * So the client base64url-encodes the token for the trip and the server decodes
+ * it here. base64url's alphabet -- `A-Za-z0-9-_` -- is entirely inside the
+ * token charset, and dropping the padding keeps it there.
  */
-const SUBPROTOCOL_TOKEN = /^[!#$%&'*+\-.^_`|~0-9A-Za-z]+$/;
+const BASE64URL = /^[A-Za-z0-9\-_]+$/;
 
 export interface SocketIdentity {
   /** Echoed back in the upgrade response when the client used a subprotocol. */
@@ -54,13 +59,26 @@ export function tokenFromRequest(request: Request): string | null {
 
   const parts = offered.split(",").map((part) => part.trim());
   const at = parts.indexOf(SUBPROTOCOL);
-  const token = at === -1 ? undefined : parts[at + 1];
+  const encoded = at === -1 ? undefined : parts[at + 1];
 
-  if (!(token && SUBPROTOCOL_TOKEN.test(token))) {
+  if (!(encoded && BASE64URL.test(encoded))) {
     return null;
   }
 
-  return token;
+  return decodeBase64Url(encoded);
+}
+
+/** Returns null for anything that is not valid base64url. */
+function decodeBase64Url(value: string): string | null {
+  const padded = value.replace(/-/g, "+").replace(/_/g, "/");
+
+  try {
+    const decoded = atob(padded.padEnd(Math.ceil(padded.length / 4) * 4, "="));
+    // A token that decodes to nothing is not a token.
+    return decoded.length > 0 ? decoded : null;
+  } catch {
+    return null;
+  }
 }
 
 /**

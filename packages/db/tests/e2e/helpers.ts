@@ -83,11 +83,9 @@ export async function connectDb(): Promise<TestDatabase> {
   neonConfig.useSecureWebSocket = false;
   neonConfig.pipelineTLS = false;
   neonConfig.pipelineConnect = false;
-  /*
-   * Forced onto the WebSocket path. `poolQueryViaFetch` sends single queries
-   * over HTTP to Neon's SQL-over-HTTP endpoint, which the tunnel does not
-   * implement and a plain Postgres does not speak.
-   */
+  // `configureForHost` turns `poolQueryViaFetch` off for local hosts now, but
+  // this helper sets `wsProxy` itself rather than going through it, so the
+  // same has to happen here.
   neonConfig.poolQueryViaFetch = false;
 
   const pool = new Pool({

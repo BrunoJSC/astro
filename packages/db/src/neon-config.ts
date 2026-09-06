@@ -68,4 +68,19 @@ export function configureForHost(connectionString: string): void {
   neonConfig.useSecureWebSocket = false;
   neonConfig.pipelineTLS = false;
   neonConfig.pipelineConnect = false;
+
+  /*
+   * And off again, for local only.
+   *
+   * `poolQueryViaFetch` above routes single queries to Neon's SQL-over-HTTP
+   * endpoint instead of the WebSocket. A WebSocket proxy does not serve that
+   * endpoint -- it forwards a TCP stream and nothing else -- so with this left
+   * on, every non-transactional query fails while transactions work, which is
+   * a confusing way to discover the problem.
+   *
+   * Turning it off costs a socket handshake per query locally and is the
+   * fail-safe direction: a proxy that does serve HTTP loses an optimisation,
+   * one that does not still works.
+   */
+  neonConfig.poolQueryViaFetch = false;
 }

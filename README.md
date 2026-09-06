@@ -85,6 +85,11 @@ pass but nothing has connected to a real Redis or browser. Proving it needs TWO
 server processes — with one node the `origin` filter is untestable, since every
 event is local. `apps/server/src/modules/gateway/README.md` has the steps.
 
+**Sign-up and sign-in are verified.** `packages/auth/tests/e2e/` creates real
+users against a real Postgres: the argon2id hash that reaches the database
+carries the configured parameters, sessions round-trip, and a bearer token is
+accepted with no cookie at all — the desktop client's whole session story.
+
 **The Postgres migration is verified.** It applies to a real Postgres 18 and
 the constraints are exercised through the production Neon driver — 16 tests in
 `packages/db/tests/e2e/`. Postgres 18 specifically: the primary keys default to

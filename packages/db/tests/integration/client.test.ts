@@ -43,11 +43,19 @@ describe("@repo/db/edge (neon-http)", () => {
 });
 
 describe("neon driver configuration", () => {
-  it("routes single pool queries over fetch", async () => {
+  it("turns fetch routing OFF for a local host", async () => {
+    /*
+     * `poolQueryViaFetch` is the live cold-start optimisation against Neon --
+     * `fetchConnectionCache` is deprecated and ignored in v1, so this is what
+     * does the work -- and it is exactly wrong locally.
+     *
+     * It routes single queries to Neon's SQL-over-HTTP endpoint. A WebSocket
+     * proxy forwards a TCP stream and serves no such endpoint, so leaving it on
+     * makes every non-transactional query fail while transactions succeed. This
+     * suite's `DATABASE_URL` is a local host, so `configureForHost` has run.
+     */
     const { neonConfig } = await import("@neondatabase/serverless");
-    // The live cold-start optimisation. `fetchConnectionCache` is deprecated
-    // and ignored in v1, so this is what actually does the work.
-    expect(neonConfig.poolQueryViaFetch).toBe(true);
+    expect(neonConfig.poolQueryViaFetch).toBe(false);
   });
 
   it("switches to the plaintext proxy protocol for local hosts", async () => {

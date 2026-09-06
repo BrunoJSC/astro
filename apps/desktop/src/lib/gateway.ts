@@ -38,11 +38,34 @@ export interface GatewayClient {
   unsubscribe: (topic: GatewayTopic) => void;
 }
 
+const B64_PLUS = /\+/g;
+const B64_SLASH = /\//g;
+const B64_PADDING = /[=]+$/;
+
 /** Matches the server's `UNAUTHORISED`. */
 const UNAUTHORISED = 4001;
 
 const BASE_BACKOFF_MS = 1000;
 const MAX_BACKOFF_MS = 30_000;
+
+/**
+ * base64url, because the raw token cannot travel as a subprotocol.
+ *
+ * A subprotocol is an RFC 7230 `token`, whose charset excludes `=` -- and a
+ * Better Auth session token is padded base64, so it ends in one. The browser
+ * refuses outright: `new WebSocket(url, ["bearer", "abc="])` throws
+ * `SyntaxError: Wrong protocol`. This is not a server-side validation quirk,
+ * it is the client failing to construct the socket.
+ *
+ * base64url's alphabet is inside the token charset, and the padding is dropped.
+ * `apps/server`'s `tokenFromRequest` decodes the other half.
+ */
+function encodeToken(token: string): string {
+  return btoa(token)
+    .replace(B64_PLUS, "-")
+    .replace(B64_SLASH, "_")
+    .replace(B64_PADDING, "");
+}
 
 function gatewayUrl(apiUrl: string): string {
   const url = new URL("/gateway", apiUrl);
@@ -130,7 +153,7 @@ export function createGatewayClient(options: GatewayOptions): GatewayClient {
     }
 
     const next = token
-      ? new WebSocket(url, ["bearer", token])
+      ? new WebSocket(url, ["bearer", encodeToken(token)])
       : new WebSocket(url);
     socket = next;
 

@@ -83,7 +83,8 @@
       "includes": [
         "packages/chat-db/src/**",
         "packages/chat-db/tests/integration/**",
-        "packages/db/tests/e2e/**"
+        "packages/db/tests/e2e/**",
+        "packages/auth/tests/e2e/**"
       ],
       "linter": {
         "rules": {

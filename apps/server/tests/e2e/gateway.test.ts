@@ -141,7 +141,9 @@ describe("upgrade and authentication", () => {
   it("echoes the bearer subprotocol back to the client", async () => {
     // A browser fails the connection when the server selects a protocol that
     // was not offered, so the echo is not cosmetic.
-    const client = await connect(["bearer", "K7fJ2-xQ_9aZ.bW3nR8sT1uV5yX"]);
+    // base64url, as `apps/desktop` sends it: a raw Better Auth token ends in
+    // `=` and the WebSocket constructor refuses it outright.
+    const client = await connect(["bearer", "dG9rZW4tZm9yLXRoZS10ZXN0"]);
     await client.next();
 
     expect(client.protocol).toBe("bearer");

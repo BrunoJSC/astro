@@ -132,11 +132,13 @@ Ordered so a failure in one does not mask the next. Steps 1 and 2 have been
 executed against real servers, and so has `@repo/db`'s migration; 3 to 5 are
 the backlog.
 
-`@repo/db` needs **Postgres 18 or newer** — every primary key defaults to
+`@repo/db` and `@repo/auth` need **Postgres 18 or newer** — every primary key defaults to
 `uuidv7()`, an 18 builtin. On 17 the migration fails at the first table with an
 "unknown function" error that reads like a typo. Neon runs 17 by default, so
-pick 18 when creating the project. Point the suite at any server with
-`PGHOST`/`PGPORT`/`PGUSER`/`PGDATABASE`; it skips when none answers.
+pick 18 when creating the project. Point both suites at any server with `PGHOST`/`PGPORT`/`PGUSER`; they skip when
+none answers. They use **separate databases** (`astro` and `astro_auth`),
+because `@repo/db` drops and recreates `public` to test the migration from
+scratch and would pull the tables out from under `@repo/auth`.
 
 ### 1. The Lua in `@repo/kv` — re-run, do not re-verify
 
