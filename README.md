@@ -113,6 +113,15 @@ engine it maintains CQL compatibility with stood in. `bun run validate:cql`
 points the same suite at real Scylla, which is still worth doing —
 Scylla-specific behaviour is not covered.
 
+**The design system compiles, and the classes it renders are real ones.**
+`packages/ui/tests/e2e/` renders the Button with `react-dom/server` and compiles
+`globals.css` through the same `@tailwindcss/postcss` plugin the apps load, then
+looks up every class the component emitted in the resulting stylesheet. A typo
+in a variant string — `bg-primry` — passes TypeScript, passes Biome, renders
+without complaint and leaves the button unstyled; that lookup is what turns it
+into a failure. No browser is involved: this is the compiler and the markup,
+never pixels.
+
 **Every pull request gets its own database.** `.github/workflows/preview-db.yml`
 creates a schema-only Neon branch, migrates it, and deletes it on close.
 

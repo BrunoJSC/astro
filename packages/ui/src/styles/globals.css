@@ -18,8 +18,15 @@
 @custom-variant dark (&:is(.dark *));
 
 /*
- * Sources outside this package's own folder must be declared explicitly in
- * v4, which no longer scans via a `content` glob. Each app adds its own.
+ * v4 replaced the `content` glob with automatic detection: it scans upward from
+ * this file to the project root and reads everything not gitignored. Measured
+ * in `tests/e2e/styles.test.ts` -- pointing this directive at a directory that
+ * does not exist still emits every class in `../components`, because automatic
+ * detection had already found them.
+ *
+ * It stays as an explicit floor. Detection stops at a package boundary in some
+ * layouts, and a consuming app whose CSS lives outside this package cannot rely
+ * on reaching in here by accident. Each app also declares its own `@source`.
  */
 @source "../components";
 

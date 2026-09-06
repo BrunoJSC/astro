@@ -164,3 +164,6 @@ Thumbs.db
 .vscode/*
 !.vscode/extensions.json
 !.vscode/settings.json.example
+
+# Written and removed by packages/ui/tests/e2e/styles.test.ts.
+packages/ui/src/styles/globals.mutant.css

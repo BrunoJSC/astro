@@ -17,7 +17,8 @@
   "scripts": {
     "check-types": "tsc --noEmit",
     "clean": "rm -rf .turbo node_modules coverage *.tsbuildinfo",
-    "test": "bun test tests/unit",
+    "test": "bun run test:unit && bun run test:e2e",
+    "test:e2e": "bun test tests/e2e",
     "test:unit": "bun test tests/unit"
   },
   "dependencies": {
@@ -28,9 +29,11 @@
   },
   "devDependencies": {
     "@repo/config": "workspace:*",
+    "@tailwindcss/postcss": "catalog:ui",
     "@types/bun": "catalog:",
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
+    "postcss": "catalog:ui",
     "react": "catalog:",
     "react-dom": "catalog:",
     "tailwindcss": "catalog:ui",

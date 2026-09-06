@@ -244,9 +244,11 @@
       },
       "devDependencies": {
         "@repo/config": "workspace:*",
+        "@tailwindcss/postcss": "catalog:ui",
         "@types/bun": "catalog:",
         "@types/react": "catalog:",
         "@types/react-dom": "catalog:",
+        "postcss": "catalog:ui",
         "react": "catalog:",
         "react-dom": "catalog:",
         "tailwindcss": "catalog:ui",
