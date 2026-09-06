@@ -21,6 +21,7 @@
  * Edit THIS FILE, not the generated schema files.
  */
 
+import { existsSync } from "node:fs";
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { $ } from "bun";
@@ -28,11 +29,20 @@ import { $ } from "bun";
 const TIMESTAMP_PATTERN = /timestamp\("([a-z_]+)"\)/g;
 const PRIMARY_KEY_PATTERN = /text\("id"\)\.primaryKey\(\)/g;
 const USER_REFERENCE_PATTERN = /references\(\(\) => user\./;
+const USER_FK_PATTERN = /text\("user_id"\)/g;
 const TRAILING_COMMA_PATTERN = /,$/;
 
 const AUTH_ROOT = join(import.meta.dir, "..");
 const DB_SCHEMA = join(AUTH_ROOT, "../db/src/schema");
 const REFERENCE = join(DB_SCHEMA, "generated/better-auth.ts");
+/*
+ * The CLI resolves --output against its cwd even when handed an absolute path,
+ * so passing REFERENCE directly wrote the file to
+ * `packages/auth/Users/macos/.../better-auth.ts` -- a duplicated directory tree
+ * that was committed before anyone noticed. Give it a path relative to
+ * AUTH_ROOT instead.
+ */
+const REFERENCE_RELATIVE = "../db/src/schema/generated/better-auth.ts";
 
 /** Per-table output: file name, prose, and the indexes the CLI does not emit. */
 const TABLES = {
@@ -77,7 +87,16 @@ that would otherwise still authenticate.`,
     doc: `The account owner. The export is named \`user\`, singular, because that is the
 model name Better Auth's Drizzle adapter looks up -- renaming it to \`users\`
 would require an explicit mapping in \`drizzleAdapter\`.`,
-    extraColumns: [],
+    /*
+     * Better Auth writes `image` from the OAuth provider. These two are the
+     * user's own uploads and take precedence -- read `avatarUrl ?? image`.
+     * Keeping them apart means re-linking a provider cannot silently overwrite
+     * an avatar the user chose.
+     */
+    extraColumns: [
+      'avatarUrl: text("avatar_url"),',
+      'bannerUrl: text("banner_url"),',
+    ],
     extraIndexes: [],
     file: "users.ts",
   },
@@ -135,12 +154,31 @@ function withTimezone(block: string): string {
   );
 }
 
-/** UUIDv7 default on the primary key, for inserts made outside Better Auth. */
+/**
+ * Native `uuid` primary keys with a UUIDv7 default.
+ *
+ * The CLI emits `text("id")`, which stores a 36-character string: 37 bytes
+ * against 16 for a native uuid, 2.3x, on every primary key and every foreign
+ * key that points at one. Postgres also compares uuid as a 128-bit value
+ * rather than through text collation.
+ *
+ * UUIDv7 rather than `defaultRandom()` (which is v4): the timestamp prefix
+ * makes ids sort chronologically, so inserts append to the right-hand edge of
+ * the B-tree instead of scattering across it. Random uuids fragment the index
+ * and turn every insert into a page split somewhere unpredictable.
+ *
+ * The default is set on BOTH sides -- see `defaultUuidV7` in ../db/src/id.ts.
+ */
 function withGeneratedId(block: string): string {
   return block.replace(
     PRIMARY_KEY_PATTERN,
-    'text("id").primaryKey().$defaultFn(newId)'
+    'uuid("id").primaryKey().$defaultFn(newId).default(sql`uuidv7()`)'
   );
+}
+
+/** Foreign keys to user.id have to carry the same type as the column they reference. */
+function withUuidForeignKeys(block: string): string {
+  return block.replace(USER_FK_PATTERN, 'uuid("user_id")');
 }
 
 /** Inserts extra columns at the head of the table's column object. */
@@ -179,12 +217,18 @@ function withExtraIndexes(block: string, indexes: readonly string[]): string {
 }
 
 function importsFor(block: string, needsNewId: boolean): string {
-  const pgCore = ["boolean", "index", "pgTable", "text", "timestamp"].filter(
-    (symbol) => new RegExp(`\\b${symbol}\\(`).test(block)
-  );
+  const pgCore = [
+    "boolean",
+    "index",
+    "pgTable",
+    "text",
+    "timestamp",
+    "uuid",
+  ].filter((symbol) => new RegExp(`\\b${symbol}\\(`).test(block));
 
   const lines = [`import { ${pgCore.join(", ")} } from "drizzle-orm/pg-core";`];
   if (needsNewId) {
+    lines.push('import { sql } from "drizzle-orm";');
     lines.push('import { newId } from "../id";');
   }
   if (USER_REFERENCE_PATTERN.test(block)) {
@@ -215,9 +259,15 @@ async function main(): Promise<void> {
    * reflects the current config.
    */
   await rm(REFERENCE, { force: true });
-  await $`bunx @better-auth/cli generate --config ./src/server.ts --output ${REFERENCE} --yes`.cwd(
+  await $`bunx @better-auth/cli generate --config ./src/server.ts --output ${REFERENCE_RELATIVE} --yes`.cwd(
     AUTH_ROOT
   );
+
+  // The CLI reports success even when it writes nowhere useful, so confirm.
+  // `existsSync`, not `Bun.file`: Biome does not know the Bun global.
+  if (!existsSync(REFERENCE)) {
+    throw new Error(`The CLI did not write ${REFERENCE}`);
+  }
 
   const generated = await readFile(REFERENCE, "utf8");
   const written: string[] = [];
@@ -231,6 +281,7 @@ async function main(): Promise<void> {
     let block = extractBlock(generated, name);
     block = withTimezone(block);
     block = withGeneratedId(block);
+    block = withUuidForeignKeys(block);
     block = withExtraColumns(block, config.extraColumns);
     block = withExtraIndexes(block, config.extraIndexes);
 
@@ -252,36 +303,14 @@ async function main(): Promise<void> {
 
   await Promise.all(pending);
 
-  // Step 3: relations in their own leaf module. Declaring them beside the
-  // tables would make users.ts and sessions.ts import each other.
-  const relationBlocks = [
-    "userRelations",
-    "sessionRelations",
-    "accountRelations",
-  ]
-    .map((name) => extractBlock(generated, name))
-    .join("\n\n");
-
-  const relations = [
-    "// Generated by packages/auth/scripts/generate-schema.ts -- do not edit.",
-    "",
-    'import { relations } from "drizzle-orm";',
-    'import { account } from "./accounts";',
-    'import { session } from "./sessions";',
-    'import { user } from "./users";',
-    "",
-    docBlock(`Relations live apart from the tables on purpose.
-
-\`userRelations\` needs \`session\` and \`account\`, and both of those need \`user\`.
-Declaring them beside the tables makes users.ts and sessions.ts import each
-other; Drizzle's lazy callbacks survive that cycle, but it is a cycle a future
-edit can easily break.`),
-    relationBlocks,
-    "",
-  ].join("\n");
-
-  await writeFile(join(DB_SCHEMA, "relations.ts"), relations);
-  written.push("relations.ts");
+  /*
+   * Relations are NOT generated. Drizzle allows exactly one `relations()` call
+   * per table, and the domain schema needs `userRelations` to also declare
+   * guilds, memberships and friendships. A generated file cannot know about
+   * those, so `relations.ts` is hand-owned and covers both halves. Relations
+   * are derived from foreign keys and change far less often than columns do --
+   * and the drift test still compares the tables themselves.
+   */
 
   /*
    * Format as the final step. Without it `bun run lint:fix` would reformat

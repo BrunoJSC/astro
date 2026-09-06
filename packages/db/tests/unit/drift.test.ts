@@ -54,11 +54,31 @@ const facts = (table: Table): Record<string, ColumnFacts> =>
  * justification as a schema change, because it will not be revisited by the
  * generator.
  */
+/**
+ * Columns whose TYPE diverges from the generator's on purpose.
+ *
+ * The CLI emits `text("id")` for every primary key and foreign key. Ours are
+ * native `uuid`: 16 bytes against 37, on every id column and every index that
+ * covers one, and compared as a 128-bit value rather than through text
+ * collation. The values are the same UUIDv7 strings either way, so Better
+ * Auth's adapter -- which treats ids as opaque -- cannot tell the difference.
+ *
+ * Nullability and column name are still compared; only the type is exempt.
+ */
+const INTENTIONAL_TYPE_CHANGES: Record<string, readonly string[]> = {
+  account: ["id", "userId"],
+  session: ["id", "userId"],
+  user: ["id"],
+  verification: ["id"],
+};
+
 const INTENTIONAL_EXTRA_COLUMNS: Record<string, readonly string[]> = {
   // better-auth 1.7 scopes account identity by `issuer` and the runtime adapter
   // refuses to write without the column, but its CLI does not generate it --
   // generator and runtime disagree. Remove once the generator emits it.
   account: ["issuer"],
+  // The user's own uploads, distinct from Better Auth's OAuth-sourced `image`.
+  user: ["avatarUrl", "bannerUrl"],
 };
 
 const PAIRS: [string, Table, Table][] = [
@@ -104,8 +124,23 @@ describe("schema matches what Better Auth expects", () => {
 
       it("matches on name, nullability and type for every generated column", () => {
         const ourColumns = facts(mine);
+        const exempt = new Set(INTENTIONAL_TYPE_CHANGES[label] ?? []);
+
         for (const [key, generatedColumn] of Object.entries(facts(expected))) {
+          if (exempt.has(key)) {
+            // Type is exempt; name and nullability are not.
+            expect(ourColumns[key]?.name).toBe(generatedColumn.name);
+            expect(ourColumns[key]?.notNull).toBe(generatedColumn.notNull);
+            continue;
+          }
           expect(ourColumns[key]).toEqual(generatedColumn);
+        }
+      });
+
+      it("uses native uuid for every id column", () => {
+        const ourColumns = facts(mine);
+        for (const key of INTENTIONAL_TYPE_CHANGES[label] ?? []) {
+          expect(ourColumns[key]?.columnType).toBe("PgUUID");
         }
       });
 

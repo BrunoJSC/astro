@@ -13,6 +13,10 @@ import "./formats";
 
 export { createSchemaFactory } from "drizzle-typebox";
 export * from "./accounts";
+export * from "./channels";
+export * from "./friends";
+export * from "./guilds";
+export * from "./roles";
 export * from "./sessions";
 export * from "./users";
 export * from "./verifications";

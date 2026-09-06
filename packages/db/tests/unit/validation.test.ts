@@ -10,11 +10,13 @@ import {
 
 const now = new Date();
 const fullUser = {
+  avatarUrl: null,
+  bannerUrl: null,
   createdAt: now,
   displayUsername: "Ana_Silva",
   email: "ana@example.com",
   emailVerified: false,
-  id: "01a0-…",
+  id: "01a00000-0000-7000-8000-000000000001",
   image: null,
   name: "Ana",
   updatedAt: now,
@@ -132,8 +134,11 @@ describe("account secrets", () => {
     expect(
       Value.Check(insertAccountSchema, {
         accountId: "acc_1",
+        // uuid format is registered, so these have to be real uuids now.
+        id: "01a00000-0000-7000-8000-000000000001",
+        issuer: "oauth:github",
         providerId: "github",
-        userId: "usr_1",
+        userId: "01a00000-0000-7000-8000-000000000002",
       })
     ).toBe(true);
   });

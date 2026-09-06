@@ -24,3 +24,16 @@ if (!FormatRegistry.Has("email")) {
 if (!FormatRegistry.Has("uri")) {
   FormatRegistry.Set("uri", (value) => URL.canParse(value));
 }
+
+/*
+ * Emitted by drizzle-typebox for every `uuid` column. Without it registered,
+ * TypeBox rejects every id -- including valid ones -- with "Unknown format".
+ * Accepts any RFC 4122 version, not just v7: rows predating the switch, and
+ * ids minted by anything else, are still legitimate.
+ */
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+if (!FormatRegistry.Has("uuid")) {
+  FormatRegistry.Set("uuid", (value) => UUID_PATTERN.test(value));
+}
