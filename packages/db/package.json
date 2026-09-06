@@ -1,0 +1,47 @@
+{
+  "name": "@repo/db",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Drizzle ORM schema and client (PostgreSQL / Neon)",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./client": "./src/client.ts",
+    "./schema": "./src/schema/index.ts",
+    "./id": "./src/id.ts",
+    "./validation": "./src/validation/index.ts",
+    "./edge": "./src/edge.ts"
+  },
+  "scripts": {
+    "bench": "bun run bench/index.ts",
+    "check-types": "tsc --noEmit",
+    "clean": "rm -rf .turbo node_modules *.tsbuildinfo",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:push": "drizzle-kit push",
+    "db:studio": "drizzle-kit studio",
+    "test": "bun run test:unit && bun run test:integration",
+    "test:coverage": "vitest run --coverage",
+    "test:integration": "vitest run",
+    "test:unit": "bun test tests/unit"
+  },
+  "dependencies": {
+    "@neondatabase/serverless": "catalog:db",
+    "@repo/env": "workspace:*",
+    "@sinclair/typebox": "catalog:db",
+    "drizzle-orm": "catalog:db",
+    "drizzle-typebox": "catalog:db",
+    "drizzle-zod": "catalog:db",
+    "uuid": "catalog:",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@repo/config": "workspace:*",
+    "@types/bun": "catalog:",
+    "@vitest/coverage-v8": "catalog:test",
+    "drizzle-kit": "catalog:db",
+    "mitata": "catalog:test",
+    "typescript": "catalog:",
+    "vitest": "catalog:test"
+  }
+}

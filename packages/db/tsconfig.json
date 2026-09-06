@@ -1,0 +1,9 @@
+{
+  "extends": "@repo/config/base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "types": ["bun"]
+  },
+  "include": ["src", "tests", "bench", "drizzle.config.ts", "vitest.config.ts"],
+  "exclude": ["node_modules", "dist", "drizzle", ".turbo"]
+}
