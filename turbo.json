@@ -1,0 +1,168 @@
+{
+  "$schema": "https://turbo.build/schema.json",
+  "ui": "tui",
+  "globalDependencies": [
+    "**/.env.*local",
+    ".env",
+    "bunfig.toml",
+    "bun.lock",
+    "biome.jsonc",
+    "tsconfig.json"
+  ],
+  "globalEnv": ["NODE_ENV", "CI", "VERCEL", "VERCEL_ENV"],
+  "globalPassThroughEnv": [
+    "npm_lifecycle_event",
+    "TURBO_TOKEN",
+    "TURBO_TEAM",
+    "BUN_INSTALL"
+  ],
+  "tasks": {
+    "build": {
+      "dependsOn": ["^build"],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "!**/*.md",
+        "!**/*.test.*",
+        "!**/*.bench.*"
+      ],
+      "env": [
+        "DATABASE_URL",
+        "BETTER_AUTH_SECRET",
+        "BETTER_AUTH_URL",
+        "NEXT_PUBLIC_*",
+        "EXPO_PUBLIC_*",
+        "TAURI_*"
+      ],
+      "outputs": [
+        ".next/**",
+        "!.next/cache/**",
+        "dist/**",
+        "out/**",
+        "build/**",
+        ".expo/**",
+        ".output/**",
+        "src-tauri/target/release/bundle/**"
+      ]
+    },
+
+    "dev": {
+      "dependsOn": ["^build"],
+      "cache": false,
+      "persistent": true
+    },
+
+    "check-types": {
+      "dependsOn": ["^build", "^check-types"],
+      "inputs": ["$TURBO_DEFAULT$", "tsconfig.json"],
+      "outputs": ["*.tsbuildinfo", ".tsbuildinfo/**"]
+    },
+
+    "test": {
+      "dependsOn": ["^build", "test:unit", "test:integration"],
+      "outputs": []
+    },
+
+    "test:unit": {
+      "dependsOn": ["^build"],
+      "inputs": ["$TURBO_DEFAULT$", "tests/unit/**"],
+      "env": ["DATABASE_URL", "TEST_DATABASE_URL"],
+      "outputs": []
+    },
+
+    "test:integration": {
+      "dependsOn": ["^build"],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "tests/integration/**",
+        "tests/setup.ts",
+        "vitest.config.ts"
+      ],
+      "env": ["DATABASE_URL", "TEST_DATABASE_URL"],
+      "outputs": []
+    },
+
+    "test:coverage": {
+      "dependsOn": ["^build"],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "tests/integration/**",
+        "tests/setup.ts",
+        "vitest.config.ts"
+      ],
+      "env": ["DATABASE_URL", "TEST_DATABASE_URL"],
+      "outputs": ["coverage/**"]
+    },
+
+    "bench": {
+      "dependsOn": ["^build"],
+      "inputs": ["$TURBO_DEFAULT$", "bench/**"],
+      "cache": false
+    },
+
+    // Every drizzle-kit task loads @repo/env/server through drizzle.config.ts,
+    // which validates the WHOLE server schema as a unit -- so the auth keys have
+    // to be declared here even though migrations never read them. Undeclared
+    // variables are stripped by turbo's strict env mode and the task fails
+    // before it reaches the database.
+    "db:generate": {
+      "cache": false,
+      "interactive": true,
+      "env": [
+        "DATABASE_URL",
+        "DIRECT_URL",
+        "BETTER_AUTH_SECRET",
+        "BETTER_AUTH_URL"
+      ]
+    },
+    "db:migrate": {
+      "cache": false,
+      "env": [
+        "DATABASE_URL",
+        "DIRECT_URL",
+        "BETTER_AUTH_SECRET",
+        "BETTER_AUTH_URL"
+      ]
+    },
+    "db:push": {
+      "cache": false,
+      "env": [
+        "DATABASE_URL",
+        "DIRECT_URL",
+        "BETTER_AUTH_SECRET",
+        "BETTER_AUTH_URL"
+      ]
+    },
+    "db:studio": {
+      "cache": false,
+      "persistent": true,
+      "env": [
+        "DATABASE_URL",
+        "DIRECT_URL",
+        "BETTER_AUTH_SECRET",
+        "BETTER_AUTH_URL"
+      ]
+    },
+    "clean": { "cache": false },
+
+    // Repo-wide root tasks. Biome and `bun audit` each read the whole tree in
+    // a single pass, so fanning them out per package would be slower and would
+    // report the same findings N times.
+    "//#lint": {
+      "inputs": [
+        "biome.jsonc",
+        "**/*.{ts,tsx,js,jsx,json,jsonc,css}",
+        "!**/node_modules/**",
+        "!**/.turbo/**",
+        "!**/dist/**",
+        "!**/.next/**"
+      ],
+      "outputs": []
+    },
+
+    "//#security:check": {
+      "inputs": ["bun.lock", "package.json"],
+      "cache": false,
+      "outputs": []
+    }
+  }
+}

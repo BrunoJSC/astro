@@ -1,0 +1,49 @@
+# ---------------------------------------------------------------------------
+# Bun runtime / package manager configuration (monorepo root)
+#
+# Workspaces and catalogs are DECLARED in package.json ("workspaces.packages",
+# "workspaces.catalog" and "workspaces.catalogs"). Bun reads them from there
+# automatically -- this file tunes how the installer and runtime behave for
+# the whole workspace.
+# ---------------------------------------------------------------------------
+
+# Prefer Bun over Node when running scripts/shebangs across the workspace.
+[run]
+bun = true
+
+[install]
+registry = "https://registry.npmjs.org"
+
+# Install both "dependencies" and "devDependencies" locally.
+production = false
+
+# Resolve peerDependencies (needed for React/React Native/Expo trees).
+peer = true
+
+# Keep semver ranges (^) so `catalog:` entries stay the single source of truth.
+exact = false
+
+# "auto": use the lockfile when it is up to date, otherwise resolve.
+auto = "auto"
+
+# Hoisted node_modules -- required by Metro (Expo/React Native), Next.js and
+# the Tauri CLI, which do not follow symlinked/isolated layouts reliably.
+linker = "hoisted"
+
+# Emit bun.lock (text, reviewable in PRs) instead of the binary bun.lockb.
+saveTextLockfile = true
+
+# Set to true in CI to fail when bun.lock is out of sync with package.json.
+frozenLockfile = false
+
+[install.cache]
+disable = false
+disableManifest = false
+
+[install.lockfile]
+save = true
+
+[test]
+coverage = false
+coverageReporter = ["text", "lcov"]
+coverageDir = "coverage"

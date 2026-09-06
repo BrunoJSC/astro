@@ -1,0 +1,154 @@
+{
+  "name": "astro-monorepo",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "workspaces": {
+    "packages": [
+      "apps/*",
+      "packages/*"
+    ],
+    "catalog": {
+      "@tanstack/react-form": "^1.33.5",
+      "@types/bun": "^1.2.0",
+      "@types/react": "^19.1.0",
+      "@types/react-dom": "^19.1.0",
+      "react": "^19.1.0",
+      "react-dom": "^19.1.0",
+      "typescript": "^7.0.2",
+      "uuid": "^14.0.2",
+      "zod": "^4.5.4",
+      "zustand": "^5.0.15"
+    },
+    "catalogs": {
+      "web": {
+        "@tanstack/react-query": "^5.102.8",
+        "next": "^16.3.4"
+      },
+      "native": {
+        "@better-auth/expo": "^1.7.2",
+        "@expo/env": "^2.4.3",
+        "expo": "~57.0.20",
+        "expo-constants": "~57.0.17",
+        "expo-linking": "~57.0.9",
+        "expo-network": "~57.0.1",
+        "expo-router": "~57.0.19",
+        "expo-secure-store": "~57.0.3",
+        "expo-status-bar": "~57.0.1",
+        "expo-system-ui": "~57.0.3",
+        "expo-web-browser": "~57.0.2",
+        "react-native": "0.86.3",
+        "react-native-safe-area-context": "~5.7.0",
+        "react-native-screens": "~4.26.0",
+        "react-native-web": "~0.21.0"
+      },
+      "desktop": {
+        "@tauri-apps/api": "^2.5.0",
+        "@tauri-apps/cli": "^2.5.0",
+        "@tauri-apps/plugin-shell": "^2.2.0",
+        "@tauri-apps/plugin-deep-link": "^2.2.0",
+        "vite": "^6.3.0",
+        "@vitejs/plugin-react": "^4.4.0"
+      },
+      "api": {
+        "@elysiajs/cors": "^1.4.2",
+        "@elysiajs/eden": "^1.4.0",
+        "@elysiajs/swagger": "^1.3.1",
+        "@tanstack/query-core": "^5.102.8",
+        "elysia": "^1.4.30"
+      },
+      "db": {
+        "@neondatabase/serverless": "^1.0.0",
+        "@sinclair/typebox": "^0.34.52",
+        "drizzle-kit": "^0.31.0",
+        "drizzle-orm": "^0.45.2",
+        "drizzle-typebox": "^0.3.3",
+        "drizzle-zod": "^0.8.0"
+      },
+      "auth": {
+        "better-auth": "^1.2.0",
+        "argon2": "^0.45.1"
+      },
+      "env": {
+        "@t3-oss/env-core": "^0.13.0",
+        "@t3-oss/env-nextjs": "^0.13.0"
+      },
+      "tooling": {
+        "@biomejs/biome": "^2.5.12",
+        "ultracite": "^7.10.8",
+        "lefthook": "^2.1.12"
+      },
+      "test": {
+        "vitest": "^5.0.0",
+        "@vitest/coverage-v8": "^5.0.0",
+        "mitata": "^1.0.34"
+      },
+      "ui": {
+        "@base-ui-components/react": "1.0.0-rc.0",
+        "@tailwindcss/postcss": "^4.3.3",
+        "class-variance-authority": "^0.7.1",
+        "clsx": "^2.1.1",
+        "postcss": "^8.5.0",
+        "tailwind-merge": "^3.6.0",
+        "tailwindcss": "^4.3.3",
+        "tw-animate-css": "^1.4.0"
+      },
+      "editor": {
+        "@tiptap/core": "^3.31.3",
+        "@tiptap/extension-emoji": "^3.31.3",
+        "@tiptap/pm": "^3.31.3",
+        "@tiptap/react": "^3.31.3",
+        "@tiptap/starter-kit": "^3.31.3",
+        "@tiptap/suggestion": "^3.31.3",
+        "frimousse": "^0.3.0"
+      }
+    }
+  },
+  "scripts": {
+    "bench": "turbo run bench",
+    "build": "turbo run build",
+    "check-types": "turbo run check-types",
+    "clean": "turbo run clean && rm -rf node_modules .turbo",
+    "db:generate": "turbo run db:generate --filter=@repo/db",
+    "db:migrate": "turbo run db:migrate --filter=@repo/db",
+    "db:studio": "turbo run db:studio --filter=@repo/db",
+    "dev": "turbo run dev",
+    "dev:desktop": "turbo run dev --filter=@repo/desktop",
+    "dev:native": "turbo run dev --filter=@repo/native",
+    "dev:server": "turbo run dev --filter=@repo/server",
+    "dev:web": "turbo run dev --filter=@repo/web",
+    "format": "biome format --write .",
+    "lint": "biome check .",
+    "lint:fix": "biome check --write .",
+    "prepare": "lefthook install",
+    "security:audit": "bun audit",
+    "security:check": "bun audit --audit-level=high --ignore GHSA-5p2g-fcmc-qvqq --ignore GHSA-w3rx-r6r6-pgpr",
+    "security:fix": "bun audit fix",
+    "test": "turbo run test",
+    "test:coverage": "turbo run test:coverage",
+    "test:integration": "turbo run test:integration",
+    "test:unit": "turbo run test:unit"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "catalog:tooling",
+    "@types/bun": "catalog:",
+    "@vitest/coverage-v8": "catalog:test",
+    "lefthook": "catalog:tooling",
+    "mitata": "catalog:test",
+    "turbo": "^2.5.0",
+    "typescript": "catalog:",
+    "ultracite": "catalog:tooling",
+    "vitest": "catalog:test"
+  },
+  "packageManager": "bun@1.4.1",
+  "engines": {
+    "bun": ">=1.2.0",
+    "node": ">=20"
+  },
+  "trustedDependencies": [
+    "@tauri-apps/cli",
+    "argon2",
+    "esbuild",
+    "sharp"
+  ]
+}
