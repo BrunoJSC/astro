@@ -3,7 +3,8 @@
 This repository was written on a borrowed macOS 12 machine with no Docker and no
 Rust. Most of it has never been executed — the exceptions are `@repo/kv`, whose
 Lua ran against a Redis built from source; `@repo/chat-db`, whose CQL ran
-against an Apache Cassandra node; and the desktop app's credential storage. Windows 11 is where
+against an Apache Cassandra node; `@repo/db`, whose migration ran against a
+Postgres 18 built from source; and the desktop app's credential storage. Windows 11 is where
 that changes — every blocker below is a limitation of the machine it was written
 on, not of the code.
 
@@ -128,7 +129,14 @@ private networks only.
 ## What to verify first
 
 Ordered so a failure in one does not mask the next. Steps 1 and 2 have been
-executed against real servers; 3 to 5 are the backlog.
+executed against real servers, and so has `@repo/db`'s migration; 3 to 5 are
+the backlog.
+
+`@repo/db` needs **Postgres 18 or newer** — every primary key defaults to
+`uuidv7()`, an 18 builtin. On 17 the migration fails at the first table with an
+"unknown function" error that reads like a typo. Neon runs 17 by default, so
+pick 18 when creating the project. Point the suite at any server with
+`PGHOST`/`PGPORT`/`PGUSER`/`PGDATABASE`; it skips when none answers.
 
 ### 1. The Lua in `@repo/kv` — re-run, do not re-verify
 

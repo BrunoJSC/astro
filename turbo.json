@@ -75,7 +75,14 @@
     "test:e2e": {
       "dependsOn": ["^build"],
       "inputs": ["$TURBO_DEFAULT$", "tests/e2e/**"],
-      "env": ["REDIS_URL", "DATABASE_URL"],
+      "env": [
+        "REDIS_URL",
+        "DATABASE_URL",
+        "PGHOST",
+        "PGPORT",
+        "PGUSER",
+        "PGDATABASE"
+      ],
       "outputs": []
     },
 

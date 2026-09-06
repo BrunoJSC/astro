@@ -20,8 +20,9 @@
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
-    "test": "bun run test:unit && bun run test:integration",
+    "test": "bun run test:unit && bun run test:e2e && bun run test:integration",
     "test:coverage": "vitest run --coverage",
+    "test:e2e": "bun test tests/e2e",
     "test:integration": "vitest run",
     "test:unit": "bun test tests/unit"
   },

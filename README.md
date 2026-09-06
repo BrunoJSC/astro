@@ -85,6 +85,11 @@ pass but nothing has connected to a real Redis or browser. Proving it needs TWO
 server processes — with one node the `origin` filter is untestable, since every
 event is local. `apps/server/src/modules/gateway/README.md` has the steps.
 
+**The Postgres migration is verified.** It applies to a real Postgres 18 and
+the constraints are exercised through the production Neon driver — 16 tests in
+`packages/db/tests/e2e/`. Postgres 18 specifically: the primary keys default to
+`uuidv7()`, which 17 does not have.
+
 **The Lua in `packages/kv` is verified.** 58 integration tests run it against a
 real Redis, including the hash-tag co-location answered by `CLUSTER KEYSLOT`
 rather than by our own CRC16. They skip when no server answers, so

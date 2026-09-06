@@ -78,11 +78,12 @@
       // Two sequential-by-nature loops. The bucket walk decides each iteration
       // from the rows the previous one returned, and stops as soon as it has
       // enough -- in parallel it would issue reads for partitions it was about
-      // to skip. Applying CQL is ordered by definition: the keyspace has to
-      // exist before the tables in it.
+      // to skip. Applying a migration is ordered by definition: the keyspace,
+      // or the referenced table, has to exist before what depends on it.
       "includes": [
         "packages/chat-db/src/**",
-        "packages/chat-db/tests/integration/**"
+        "packages/chat-db/tests/integration/**",
+        "packages/db/tests/e2e/**"
       ],
       "linter": {
         "rules": {

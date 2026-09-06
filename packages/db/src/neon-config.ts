@@ -29,6 +29,13 @@ neonConfig.poolQueryViaFetch = true;
  * Without a proxy running, use a Neon branch for local work instead; the
  * `@repo/db/edge` client needs one either way.
  */
+/**
+ * Where the proxy listens. Overridable because a test harness runs its own on
+ * an ephemeral port, and because `docker compose` may publish it elsewhere.
+ */
+const PROXY_HOST = process.env.NEON_PROXY_HOST ?? "localhost";
+const PROXY_PORT = process.env.NEON_PROXY_PORT ?? "5433";
+
 const LOCAL_HOSTS = new Set([
   "localhost",
   "127.0.0.1",
@@ -49,7 +56,15 @@ export function configureForHost(connectionString: string): void {
     return;
   }
 
-  neonConfig.wsProxy = (proxyHost) => `${proxyHost}:5433/v1`;
+  /*
+   * The callback receives the DATABASE host and port, not the proxy's, and has
+   * to return the full proxy address including where to route to. Returning
+   * just `${host}:5433/v1` -- as this did -- gives the proxy no `address` to
+   * dial, and it answers the upgrade with a 400 instead of a 101. Found by
+   * running it.
+   */
+  neonConfig.wsProxy = (dbHost, dbPort) =>
+    `${PROXY_HOST}:${PROXY_PORT}/v1?address=${dbHost}:${dbPort}`;
   neonConfig.useSecureWebSocket = false;
   neonConfig.pipelineTLS = false;
   neonConfig.pipelineConnect = false;
