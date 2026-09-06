@@ -31,7 +31,7 @@
         "BETTER_AUTH_URL",
         "NEXT_PUBLIC_*",
         "EXPO_PUBLIC_*",
-        "TAURI_*"
+        "ELECTRON_*"
       ],
       "outputs": [
         ".next/**",
@@ -41,7 +41,7 @@
         "build/**",
         ".expo/**",
         ".output/**",
-        "src-tauri/target/release/bundle/**"
+        "release/**"
       ]
     },
 

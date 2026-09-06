@@ -20,7 +20,6 @@
       "!!**/out",
       "!!**/coverage",
       "!!**/drizzle",
-      "!!**/src-tauri/target",
       "!!**/bun.lock",
       // Biome's CSS parser does not know Tailwind v4's at-rules (@theme,
       // @source, @custom-variant, @apply) and fails to parse these files.

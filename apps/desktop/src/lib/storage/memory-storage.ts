@@ -18,7 +18,7 @@ export function createMemoryStorage(): SecureStorage {
       map.clear();
       return Promise.resolve();
     },
-    durability: "ephemeral",
+    durability: () => Promise.resolve("ephemeral" as const),
     getItem: (key) => Promise.resolve(map.get(key) ?? null),
     name: "memory",
     removeItem: (key) => {

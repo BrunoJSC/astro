@@ -51,10 +51,12 @@ function installLocalStorage(): void {
 
 installLocalStorage();
 
+// Not `as const`: `describe.each` takes a mutable array, and a readonly tuple
+// fails to match its overloads.
 const backends = [
   { make: createMemoryStorage, name: "memory" },
   { make: () => createWebStorage("test:"), name: "web" },
-] as const;
+];
 
 beforeEach(() => {
   localStorage.clear();
@@ -100,12 +102,13 @@ describe.each(backends)("$name storage", ({ make }) => {
     expect(await storage.getItem("b")).toBeNull();
   });
 
-  it("declares how durable it is", () => {
-    const storage = make();
+  it("declares how durable it is", async () => {
     // Callers branch on this rather than assuming: a refresh token belongs
-    // somewhere `encrypted`, a UI preference does not care.
+    // somewhere `encrypted`, a UI preference does not care. Asynchronous
+    // because the Electron backend has to ask the main process which
+    // safeStorage backend the OS actually gave it.
     expect(["ephemeral", "plaintext", "encrypted"]).toContain(
-      storage.durability
+      await make().durability()
     );
   });
 });

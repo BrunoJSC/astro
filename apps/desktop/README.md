@@ -1,170 +1,184 @@
 # @repo/desktop
 
-Tauri v2 desktop client. React frontend, Rust shell.
+Electron desktop client. React renderer, Node main process.
 
 ```bash
 bun run dev:desktop      # from the repo root
-bun tauri dev            # from this directory
-bun tauri build          # installer in src-tauri/target/release/bundle
+bun run dev              # from this directory
+bun run build            # bundles main, preload and renderer into out/
+bun run build:app        # installer in release/
 ```
 
 The API must be running (`bun run dev:server`), and `.env` must exist here —
 copy `.env.example`.
 
-### Why `build` is not `tauri build`
+---
 
-`bun run build` here compiles the **frontend only**, and `bun run build:app`
-(or `bun tauri build`) produces the native installer.
+## Status: launches, and safeStorage is real
 
-The split is not cosmetic. `build` is what `turbo run build` invokes across the
-whole monorepo, and pointing it at `tauri build` makes every repo-wide build —
-and CI — depend on a Rust toolchain and platform SDKs, to produce an installer
-nobody asked for. It also cannot be cached usefully: the output is a signed
-bundle for one platform. Shipping an installer is a release step with its own
-requirements, so it gets its own script.
+Verified on macOS 12.7.6 by running the built `out/main/index.js` and driving the
+renderer over the Chrome DevTools Protocol:
+
+- the window opens and the renderer loads with no console errors;
+- the preload bridge is present — `window.astro` exposes exactly
+  `credentials, openExternal, platform, version`;
+- `credentials.backend()` reports
+  `{ encrypted: true, name: "safeStorage (Keychain)" }`;
+- a value written through the bridge reads back, and disappears after
+  `remove`;
+- the file on disk is `-rw-------`, begins with Chromium's `v10` encryption
+  marker, and **does not contain the token in plaintext**.
+
+Two things are still unverified: `bun run dev` (electron-vite's dev server plus
+HMR was never started) and `bun run build:app` (no installer has been produced).
+
+### Electron 44 does not run on macOS 12
+
+The pinned version fails to launch here with `Symbol not found:
+_OBJC_CLASS_$_SMAppService`, which is macOS 13+. The verification above used a
+throwaway Electron 40 against the same built output.
+
+The pin stays at 44 deliberately — an older Electron means an older Chromium and
+its CVEs, which is a bad trade to make for one development machine. If you need
+to run it on Monterey, install `electron@40` locally rather than changing the
+pin.
 
 ---
 
-## Status: the Rust half has never been compiled
+## Why Electron, after starting on Tauri
 
-The frontend is verified: `vite build` produces a bundle, `tsc` passes, Biome
-passes. The Rust side has not been built even once. This was written on a
-borrowed machine with no Rust toolchain and no Xcode, so `cargo` could not run.
+Tauri does not bundle a browser engine; it renders in the OS webview. For a
+Discord-style client that is disqualifying, and not because of papercuts:
 
-`bun tauri info` does parse `tauri.conf.json` and `Cargo.toml` and reports the
-config back correctly, which rules out malformed manifests — but that is
-parsing, not compiling. Expect the first `bun tauri dev` on a real machine to
-surface something: a dependency version that does not resolve, a plugin whose
-v2 API drifted, a missing platform library.
+| | Voice (`getUserMedia`) | Screen (`getDisplayMedia`) |
+| --- | --- | --- |
+| Windows / WebView2 | works | works |
+| macOS / WKWebView | works | **unsupported** |
+| Linux / WebKitGTK | **limited** | limited |
 
-First run on a machine with the toolchain:
+`voice.join`, `peerId` and `selfMute` are already in the schema, in Redis and in
+the gateway. Voice is scope, and on Tauri the feature would be broken on two of
+three platforms with no fix available from application code. Electron bundles
+Chromium, so WebRTC behaves the same everywhere, and `desktopCapturer` exists
+for picking a window or screen.
 
-```bash
-rustup --version || curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
-cd apps/desktop && bun tauri dev
-```
+Three things came along with it, none of which would have justified the move
+alone:
 
-The first build compiles the whole dependency tree and takes several minutes.
-Delete this section once it has run.
+- **`safeStorage`** — a first-party keychain API. Under Tauri the session token
+  was plaintext on disk, because v2 ships no keychain plugin.
+- **No Rust toolchain.** The `src-tauri` crate never compiled on the machine
+  this was written on; there is nothing left to compile.
+- **One engine.** Both bugs hit while building the Tauri version were instances
+  of the same cause: `safari13` breaking top-level await, and `tauri://localhost`
+  having no cookie jar for the API.
 
----
+The costs are real: a ~150MB installer against ~15MB, higher idle memory, and
+Chromium updates become a security obligation rather than a convenience — an
+Electron app without auto-update ships known CVEs.
 
-## Why Vite and not Next.js
-
-Tauri serves the frontend as static files over a custom protocol; a shipped app
-has no Node process behind it. Next would have to run in `output: "export"`,
-which drops Server Components, route handlers and middleware — everything that
-justifies choosing it — or ship a Node runtime inside the installer. Vite is
-what Tauri targets by default, and the pieces that matter here (`@repo/ui`,
-Eden Treaty, Better Auth) are framework-agnostic.
-
-The web app stays on Next. Nothing is duplicated between them except the
-provider tree, which is 20 lines.
+The migration itself was cheap because it happened early: six lines of the
+renderer were Tauri-specific.
 
 ## Layout
 
 ```
-index.html               the shell Vite compiles; entry is src/main.tsx
-vite.config.ts           port 1420 fixed, src-tauri excluded from the watcher
-src/
-  main.tsx               React root, and where the window is revealed
-  app.tsx                entry screen; checks all four seams are live
-  env.ts                 validated VITE_* — see the note below
-  lib/eden.ts            typed client against apps/server
-  lib/auth-client.ts     Better Auth, desktop flavour
-  components/providers.tsx
-  styles/globals.css     imports @repo/ui/styles, plus desktop-only base rules
-src-tauri/
-  tauri.conf.json        window, CSP, bundle, deep-link scheme
-  Cargo.toml             crate is a lib + thin bin, so mobile can reuse run()
-  src/main.rs            binary entry; hides the Windows console in release
-  src/lib.rs             plugin registration and the IPC handler
-  capabilities/          what the main window may ask Rust to do
-  icons/                 placeholders — regenerate with `bun tauri icon <logo.png>`
+electron/
+  main/index.ts          window, security policy, app lifecycle
+  main/credentials.ts    safeStorage + the file it persists to
+  preload/index.ts       the contextBridge — the only way in
+  preload/api.ts         the bridge's type, shared with the renderer
+src/                     the renderer, unchanged from the Tauri version
+  lib/storage/           ISecureStorage and its backends
+  lib/gateway.ts         client for the server's realtime socket
+electron.vite.config.ts  three builds: main, preload, renderer
+electron-builder.yml     packaging, read only by build:app
 ```
 
-## Three things that are easy to get wrong
+## Security is decided in `electron/main/index.ts`
 
-**The environment is spelled out, not spread.** Vite inlines `import.meta.env.VITE_*`
-by literal text substitution, so `...import.meta.env` compiles to an object that
-is empty in a production build while type-checking perfectly. The failure shows
-up as a request to `undefined/auth` in a shipped binary. `src/env.ts` lists every
-key; the schema lives in `@repo/env/desktop`, which is a schema map only for
-exactly this reason.
+Electron's defaults are safe today, but everything that makes an Electron app
+dangerous is a decision that file makes, so each is closed explicitly rather
+than left to a default that could change:
 
-**The app has three origins, not one.** `http://localhost:1420` is only the Vite
-dev server. A packaged window is served from `tauri://localhost` on macOS and
-Linux, and `http://tauri.localhost` on Windows. All three belong in the server's
-`CORS_ORIGINS`, or the app works throughout development and fails on the first
-machine that installs it.
+- `sandbox`, `contextIsolation`, `nodeIntegration: false` — with all three, the
+  renderer's entire reach into the OS is the handful of methods in the preload.
+- `setWindowOpenHandler` denies every new window and sends the URL to the real
+  browser. An OAuth page in an app window is blocked by most providers anyway,
+  and a popup with no address bar is where phishing lives.
+- `will-navigate` blocks navigating away — there is no address bar to come back
+  with.
+- `openExternal` **validates the scheme**. `shell.openExternal` hands anything
+  to the platform handler, including `file://`, `smb://` and on Windows schemes
+  that execute. Without the check, "open a link" becomes "run a program" for a
+  compromised renderer.
+- A CSP is set on every response from the main process, so one policy covers the
+  dev server and the packaged `file://` load, and the API origin is not
+  duplicated into HTML.
 
-**Sessions are bearer tokens, not cookies.** A packaged window is served from
-`tauri://localhost`, so the API's cookie is third-party to it and both WKWebView
-and WebView2 block those by default — sign-in would appear to succeed and the
-session would be gone on the next request. So `@repo/auth` registers Better
-Auth's `bearer()` plugin: it returns the session token in a `set-auth-token`
-header on sign-in and accepts it back as `Authorization: Bearer`.
-`lib/auth-client.ts` captures and sends it; `lib/session-token.ts` holds it.
+## The preload is CommonJS on purpose
 
-Where it is held is the weak part — see below.
+A **sandboxed** preload cannot be an ES module — Electron runs it "as plain
+JavaScript without an ESM context". This package is `"type": "module"`, so
+electron-vite's default output was `index.mjs`, which the sandboxed renderer
+fails to load *silently*: no bridge, no error, and the app quietly falls back to
+in-memory credentials. So the preload build is pinned to `cjs` with an explicit
+`index.cjs` filename, and the main process loads that path.
 
-## Credential storage is not the OS keychain
+Turning `sandbox` off would also fix it, and trades the renderer's OS sandbox
+for a module format. Not a trade worth making for a preload that imports nothing
+but `electron`.
+
+## Credentials
 
 `lib/storage/` is the adapter: one `ISecureStorage` contract, three backends,
-chosen at runtime by whether `window.__TAURI_INTERNALS__` exists. A Tauri window
-gets `@tauri-apps/plugin-store`; a browser or plain `vite dev` tab gets
-`localStorage`, which degrades to memory when the browser refuses it; anything
-with no `window` gets memory.
+chosen at runtime by whether the preload bridge exists. Electron gets
+`safeStorage`; a browser or dev-server tab gets `localStorage`, degrading to
+memory; anything with no `window` gets memory.
 
-None of them is the OS keychain, and the plugin names invite the opposite
-assumption:
+Two things about `safeStorage` are easy to get wrong, and both are handled in
+`electron/main/credentials.ts`:
 
-- **`plugin-store` does not encrypt.** It is a JSON file in the app's data
-  directory. Against a process running as the same user it is exactly as exposed
-  as `localStorage`. What it buys is a file the app owns, outside the webview's
-  storage, that survives a cleared cache and can be deleted deterministically.
-- **`plugin-stronghold` is not the keychain either.** It is an IOTA vault written
-  to an encrypted `.hold` snapshot, and it must be opened with a password. For an
-  app that signs the user in without prompting, that password has to live
-  somewhere the app can read unattended — which is the original problem, one
-  indirection down.
-- **Tauri v2 ships no official keychain plugin.** Reaching Keychain, Credential
-  Manager or Secret Service needs a community crate and a pair of Rust commands.
+- **It does not persist.** `encryptString` returns a Buffer and stops there.
+  Writing the ciphertext is the app's job — it goes to `userData`, mode `0600`.
+- **On Linux it may not encrypt.** With no secret service running,
+  `getSelectedStorageBackend()` returns `basic_text`, meaning a hardcoded
+  password, which protects nothing. `durability()` reports `plaintext` in that
+  case rather than claiming otherwise, and the app shows it on screen.
 
-So the token is plaintext on disk today. Every backend reports its own
-`durability` (`ephemeral` / `plaintext` / `encrypted`) so calling code can ask
-rather than assume, and the app surfaces it on screen. Moving to the keychain is
-one new backend in `lib/storage/` and one line in `getSecureStorage`.
+`durability()` is async for exactly that reason: the honest answer is only known
+after asking the main process which backend the OS actually handed over.
 
 ## The gateway
 
 `lib/gateway.ts` is the client for the server's realtime socket, and
-`lib/gateway-store.ts` holds one connection for the whole app — a hook that owned
-the socket would open one per component.
+`lib/gateway-store.ts` holds one connection for the whole app — a hook that
+owned the socket would open one per component.
 
-The frame types are imported from `@repo/server/gateway/model` as types only, so
-the contract is the server's own definition rather than a copy that drifts. The
-import is erased at compile time; nothing from Elysia reaches the bundle.
+Frame types are imported from `@repo/server/gateway/model` as types only, so the
+contract is the server's own definition rather than a copy that drifts, and
+nothing from Elysia reaches the bundle.
 
-The token travels as a WebSocket subprotocol — `new WebSocket(url, ["bearer",
-token])` — because the WebSocket API cannot set an `Authorization` header, and a
-query string would put the session token into every proxy and access log it
-passes through.
+The session token travels as a WebSocket subprotocol — `new WebSocket(url,
+["bearer", token])` — because the WebSocket API cannot set an `Authorization`
+header, and a query string would put the token into every proxy and access log
+it passes through. That path was built for Tauri's missing cookie jar and is
+still the right one here: a packaged renderer loads from `file://`, whose origin
+is opaque.
 
 Reconnection is exponential backoff with **full jitter**, and the jitter is not
 politeness: when a server node dies every client it held reconnects at once, and
-a fixed delay makes them arrive together, knock over whichever node they land on,
-and repeat. A close with code 4001 is terminal — retrying a rejected credential
-just burns connections.
+a fixed delay makes them arrive together, knock over whichever node they land
+on, and repeat. A close with code 4001 is terminal — retrying a rejected
+credential just burns connections.
 
-## Rust is for what only a native process can do
+## Known gaps
 
-`src/lib.rs` exposes one command, `app_version`, and it exists to prove the IPC
-bridge works. Domain logic does not go there: the app talks to `apps/server`
-over HTTP through Eden Treaty, so web, native and desktop share one typed
-contract. Commands are for tray icons, notifications, global shortcuts, file
-dialogs — the things a webview cannot reach.
-
-Every command needs a matching permission in `src-tauri/capabilities/default.json`.
-Tauri v2 denies by default; a call with no permission fails at runtime, not at
-compile time.
+- **No auto-update.** Electron makes this mandatory rather than optional: you
+  now ship Chromium, so you own its CVEs. `electron-updater` pairs with the
+  `electron-builder.yml` already here.
+- **Unsigned builds.** `mac.identity` is null, so a distributed `.dmg` is
+  quarantined by macOS. Real distribution needs an Apple Developer identity and
+  notarisation, and a Windows signing certificate.
+- **No tray, global shortcuts or `desktopCapturer` wiring yet.** They are the
+  reason Electron was chosen; none are built.

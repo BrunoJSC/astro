@@ -30,6 +30,15 @@ export type StorageDurability =
   | "encrypted";
 
 export interface SecureStorage extends ISecureStorage {
-  readonly durability: StorageDurability;
+  /**
+   * How well this backend actually protects what it holds.
+   *
+   * Asynchronous because the honest answer is not always known locally. The
+   * Electron backend has to ask the main process which `safeStorage` backend
+   * the OS gave it -- on Linux with no keyring that is `basic_text`, a fixed
+   * password, which protects nothing. Reporting "encrypted" and correcting it
+   * later would be worse than making the caller wait.
+   */
+  durability: () => Promise<StorageDurability>;
   readonly name: string;
 }

@@ -1,4 +1,3 @@
-import { getCurrentWindow } from "@tauri-apps/api/window";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { App } from "./app";
@@ -9,10 +8,10 @@ import "./styles/globals.css";
 /**
  * Bridge from the HTML shell into React.
  *
- * The window is created hidden (`"visible": false` in tauri.conf.json) and
- * shown here, after the first render has been committed. A Tauri window
- * otherwise appears as a white rectangle for as long as the bundle takes to
- * parse -- brief on a fast machine, very visible on a cold start.
+ * Revealing the window is no longer this file's job. The main process creates
+ * it hidden and shows it on `ready-to-show`, which Chromium fires when the
+ * first frame is ready to paint -- a better signal than "React has been asked
+ * to render", and one the renderer cannot observe.
  */
 const container = document.getElementById("root");
 
@@ -32,18 +31,6 @@ function start(): void {
       </Providers>
     </StrictMode>
   );
-
-  /*
-   * Deliberately not awaited: showing the window is a side effect of the app
-   * being ready, and a failure here (a webview that does not grant the
-   * permission) must not take the UI down with it.
-   */
-  getCurrentWindow()
-    .show()
-    .catch(() => {
-      // The window stays hidden rather than the app crashing; the capability in
-      // src-tauri/capabilities/default.json is what grants this.
-    });
 }
 
 /*
@@ -54,9 +41,10 @@ function start(): void {
  * races the other into an unauthenticated attempt that has to be retried, and a
  * signed-in user never sees a signed-out shell for a frame.
  *
- * A `.then` chain rather than top-level await, and not stylistically: Tauri
- * builds target `safari13` (see vite.config.ts), where top-level await does not
- * exist. esbuild fails the build outright rather than transpiling it.
+ * A `.then` chain rather than top-level await. It could be an await now that
+ * the renderer targets a bundled Chromium -- under Tauri the `safari13` target
+ * made esbuild fail the build outright -- but ordering the work explicitly is
+ * clearer than relying on module evaluation order.
  *
  * `start` runs either way. A storage backend that cannot be read means the user
  * is treated as signed out, which is recoverable; refusing to render is not.

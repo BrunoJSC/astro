@@ -1,0 +1,44 @@
+# Packaging. Only `bun run build:app` reads this; `bun run build` stops at the
+# three bundles in out/.
+appId: com.astro.desktop
+productName: Astro
+directories:
+  buildResources: resources
+  output: release
+
+# Only what the app runs. node_modules is deliberately absent: main and preload
+# are bundled by electron-vite, and shipping the workspace's dependency tree
+# would put the entire monorepo inside the installer.
+files:
+  - out/**
+  - package.json
+
+# Ship the app's own asar, and keep the Chromium/Node runtime unpacked as
+# electron-builder expects.
+asar: true
+
+mac:
+  category: public.app-category.social-networking
+  target:
+    - dmg
+    - zip
+  # Unsigned for now. A distributable build needs an Apple Developer identity
+  # and notarisation, or macOS quarantines the download and refuses to open it.
+  identity: null
+
+win:
+  target:
+    - nsis
+
+linux:
+  category: Network
+  target:
+    - AppImage
+    - deb
+
+# Deep link for the OAuth callback, replacing tauri-plugin-deep-link. The scheme
+# must match what the auth provider redirects to.
+protocols:
+  - name: Astro
+    schemes:
+      - astro

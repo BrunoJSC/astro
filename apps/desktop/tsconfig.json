@@ -4,14 +4,18 @@
     "noEmit": true,
     "declaration": false,
     "declarationMap": false,
-    // `vite/client` is what types `import.meta.env`. It is scoped to this app
-    // deliberately: @repo/env is shared with Next and Expo, and pulling Vite's
-    // ambient declarations into that package would apply them everywhere.
-    "types": ["vite/client"],
+    /*
+     * The main and preload processes run in Node, the renderer in Chromium, so
+     * both sets of globals have to be visible. `vite/client` is what declares
+     * the CSS and asset imports the renderer makes; `electron-vite/node` adds
+     * the main-process side of `import.meta.env`. Neither covers the other.
+     */
+    "types": ["node", "vite/client", "electron-vite/node"],
+    "lib": ["DOM", "DOM.Iterable", "ES2022"],
     "paths": {
       "@/*": ["./src/*"]
     }
   },
-  "include": ["src", "vite.config.ts"],
-  "exclude": ["node_modules", "dist", ".turbo", "src-tauri"]
+  "include": ["src", "electron", "tests", "electron.vite.config.ts"],
+  "exclude": ["node_modules", "dist", "out", ".turbo"]
 }

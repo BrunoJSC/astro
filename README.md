@@ -11,7 +11,7 @@ client.
 | `apps/web` | Next.js 16, App Router, Tailwind v4 |
 | `apps/server` | Elysia API on Bun, plugin/module architecture |
 | `apps/native` | Expo SDK 57, Expo Router |
-| `apps/desktop` | Tauri v2 desktop client (React + Vite) |
+| `apps/desktop` | Electron desktop client (React + Vite) |
 | `packages/db` | Drizzle ORM on Neon: the relational graph |
 | `packages/chat-db` | ScyllaDB: message history, audit and moderation logs |
 | `packages/kv` | Redis/Valkey: presence, typing, voice state, pub/sub fan-out |
@@ -84,9 +84,12 @@ event is local. `apps/server/src/modules/gateway/README.md` has the steps.
 tested; `packages/kv/README.md` says what that leaves open, and
 `bun run validate:kv` settles it.
 
-**The desktop app's Rust half has never been compiled.** Its frontend builds
-and typechecks; `cargo` was never available on the machine it was written on.
-`apps/desktop/README.md` says what that leaves open.
+**The desktop app launches, and its credential storage is verified.** It moved from Tauri to Electron
+because Tauri renders in the OS webview, and WKWebView has no `getDisplayMedia`
+while WebKitGTK's WebRTC is limited — screen sharing and voice would be broken
+on two of three platforms, and voice is already in the schema. Electron bundles
+Chromium, and its `safeStorage` replaced the plaintext token file.
+`apps/desktop/README.md` has the trade-offs and what is still unbuilt.
 
 **The CQL has not run against a live ScyllaDB yet.** It was written on a
 machine without Docker, and Scylla is Linux-only so there was no way to apply

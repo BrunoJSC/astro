@@ -1,13 +1,11 @@
 import { edenQuery } from "@repo/server/eden";
 import { Button } from "@repo/ui/components";
 import { useQuery } from "@tanstack/react-query";
-import { getVersion } from "@tauri-apps/api/app";
-import { open } from "@tauri-apps/plugin-shell";
 import { useEffect } from "react";
 import { useSession } from "./lib/auth-client";
 import { api } from "./lib/eden";
 import { useGateway } from "./lib/gateway-store";
-import { getSecureStorage, isTauri } from "./lib/storage";
+import { getSecureStorage, isElectron } from "./lib/storage";
 
 /**
  * The entry screen, and a live check that every seam is wired: the design
@@ -20,17 +18,23 @@ import { getSecureStorage, isTauri } from "./lib/storage";
 const REPOSITORY_URL = "https://github.com/BrunoJSC/astro";
 
 function openRepository() {
-  // `open` hands the URL to the OS browser instead of navigating the webview.
-  // Navigating away would replace the app with a web page and leave no way
-  // back -- there is no address bar.
-  open(REPOSITORY_URL);
+  // Hands the URL to the OS browser instead of navigating the window.
+  // Navigating away would replace the app with a web page, in a window with no
+  // address bar and no way back. The main process refuses anything but http(s).
+  window.astro?.openExternal(REPOSITORY_URL);
 }
 
 export function App() {
   const health = useQuery(edenQuery(["health"], () => api.health.get()));
   const version = useQuery({
-    queryFn: () => getVersion(),
+    queryFn: () => window.astro?.version() ?? Promise.resolve("web"),
     queryKey: ["app-version"],
+  });
+  // Asked rather than assumed: on Linux with no keyring `safeStorage` falls
+  // back to a fixed password, and the user should see that.
+  const durability = useQuery({
+    queryFn: () => getSecureStorage().durability(),
+    queryKey: ["storage-durability"],
   });
   const session = useSession();
 
@@ -55,7 +59,7 @@ export function App() {
       <header className="text-center">
         <h1 className="font-semibold text-2xl">Astro</h1>
         <p className="selectable text-muted-foreground text-sm">
-          Tauri v2 · React · {version.data ?? "…"}
+          Electron · React · {version.data ?? "…"}
         </p>
       </header>
 
@@ -78,13 +82,13 @@ export function App() {
           {getSecureStorage().name}
           <span className="text-muted-foreground">
             {" "}
-            ({getSecureStorage().durability})
+            ({durability.data ?? "…"})
           </span>
         </dd>
 
         <dt className="text-muted-foreground">Runtime</dt>
         <dd className="selectable text-right">
-          {isTauri() ? "tauri" : "browser"}
+          {isElectron() ? `electron / ${window.astro?.platform}` : "browser"}
         </dd>
       </dl>
 

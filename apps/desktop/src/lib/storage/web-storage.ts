@@ -42,7 +42,7 @@ export function createWebStorage(prefix = "astro:"): SecureStorage {
       }
       return Promise.resolve();
     },
-    durability: "plaintext",
+    durability: () => Promise.resolve("plaintext" as const),
     getItem: (key) => Promise.resolve(localStorage.getItem(prefix + key)),
     name: "localStorage",
     removeItem: (key) => {

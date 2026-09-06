@@ -31,6 +31,8 @@ bun.lockb
 apps/*/dist/
 apps/*/build/
 apps/*/out/
+# electron-builder installers: hundreds of megabytes per platform.
+apps/*/release/
 apps/*/.output/
 packages/*/dist/
 packages/*/build/
