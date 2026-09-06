@@ -1,0 +1,46 @@
+{
+  "name": "@repo/auth",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Better Auth server and client, wired to @repo/db",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./server": "./src/server.ts",
+    "./client": "./src/client.ts"
+  },
+  "scripts": {
+    "auth:generate": "bun run scripts/generate-schema.ts",
+    "bench": "bun run bench/index.ts",
+    "check-types": "tsc --noEmit",
+    "clean": "rm -rf .turbo node_modules *.tsbuildinfo",
+    "test": "bun run test:unit && bun run test:integration",
+    "test:coverage": "vitest run --coverage",
+    "test:integration": "vitest run",
+    "test:unit": "bun test tests/unit"
+  },
+  "dependencies": {
+    "@repo/db": "workspace:*",
+    "@repo/env": "workspace:*",
+    "argon2": "catalog:auth",
+    "better-auth": "catalog:auth"
+  },
+  "devDependencies": {
+    "@repo/config": "workspace:*",
+    "@types/bun": "catalog:",
+    "@types/react": "catalog:",
+    "@vitest/coverage-v8": "catalog:test",
+    "mitata": "catalog:test",
+    "react": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:test"
+  },
+  "peerDependencies": {
+    "react": "catalog:"
+  },
+  "peerDependenciesMeta": {
+    "react": {
+      "optional": true
+    }
+  }
+}

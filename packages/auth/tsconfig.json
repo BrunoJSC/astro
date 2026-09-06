@@ -1,0 +1,9 @@
+{
+  "extends": "@repo/config/react-library.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "types": ["bun"]
+  },
+  "include": ["src", "tests", "vitest.config.ts"],
+  "exclude": ["node_modules", "dist", ".turbo"]
+}
