@@ -1,0 +1,27 @@
+{
+  "name": "@repo/env",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Type-safe, validated environment variables (T3 Env)",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./server": "./src/server.ts",
+    "./client": "./src/client.ts",
+    "./shared": "./src/shared.ts",
+    "./native": "./src/native.ts"
+  },
+  "scripts": {
+    "check-types": "tsc --noEmit",
+    "clean": "rm -rf .turbo node_modules *.tsbuildinfo"
+  },
+  "dependencies": {
+    "@t3-oss/env-core": "catalog:env",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@repo/config": "workspace:*",
+    "@types/bun": "catalog:",
+    "typescript": "catalog:"
+  }
+}
