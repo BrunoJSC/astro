@@ -41,6 +41,13 @@ export const serverSchema = {
   DIRECT_URL: z.string().url().optional(),
   /** Port the API binds to. Coerced because process.env values are strings. */
   PORT: z.coerce.number().int().positive().max(65_535).default(3001),
+  /**
+   * Redis or Valkey, for presence, typing, voice state and WebSocket fan-out.
+   *
+   * `rediss://` for anything not on localhost: presence and pub/sub carry user
+   * ids and message ids continuously, and Redis speaks plaintext by default.
+   */
+  REDIS_URL: z.string().url().default("redis://localhost:6379"),
 } as const;
 
 export const serverEnv = createEnv({

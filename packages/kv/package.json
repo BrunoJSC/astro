@@ -1,0 +1,32 @@
+{
+  "name": "@repo/kv",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Redis/Valkey: presence, typing, voice state, rate limits, pub/sub fan-out",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./client": "./src/client.ts",
+    "./keys": "./src/keys.ts",
+    "./types": "./src/types.ts"
+  },
+  "scripts": {
+    "check-types": "tsc --noEmit",
+    "clean": "rm -rf .turbo node_modules *.tsbuildinfo",
+    "kv:cli": "docker compose exec valkey valkey-cli",
+    "kv:down": "docker compose down -v",
+    "kv:up": "docker compose up -d --wait",
+    "test": "bun test tests/unit",
+    "test:unit": "bun test tests/unit",
+    "validate:kv": "./scripts/validate.sh"
+  },
+  "dependencies": {
+    "@repo/env": "workspace:*",
+    "ioredis": "catalog:realtime"
+  },
+  "devDependencies": {
+    "@repo/config": "workspace:*",
+    "@types/bun": "catalog:",
+    "typescript": "catalog:"
+  }
+}

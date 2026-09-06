@@ -84,6 +84,35 @@
       }
     },
     {
+      // The validation harness talks to a real server and asserts ordering:
+      // the rate-limit budget has to be spent one take at a time for the
+      // countdown to mean anything, and the concurrent case is a separate
+      // assertion right below it. Parallelising here would delete the test.
+      "includes": ["packages/kv/scripts/**"],
+      "linter": {
+        "rules": {
+          "performance": {
+            "noAwaitInLoops": "off"
+          }
+        }
+      }
+    },
+    {
+      // Redis Cluster picks a slot with CRC16/XMODEM, which is shifts and XORs
+      // all the way down. The rule is aimed at `&` written where `&&` was
+      // meant; a checksum is the case it is not aimed at. This test
+      // reimplements the real slot function so the hash-tag co-location the
+      // whole key scheme depends on is computed rather than asserted.
+      "includes": ["packages/kv/tests/unit/keys.test.ts"],
+      "linter": {
+        "rules": {
+          "suspicious": {
+            "noBitwiseOperators": "off"
+          }
+        }
+      }
+    },
+    {
       // Drizzle requires the schema namespace object -- `drizzle(pool, { schema })`
       // is what enables relational queries.
       "includes": ["packages/db/**"],
@@ -106,7 +135,8 @@
         "packages/db/src/validation/index.ts",
         "packages/ui/src/components/index.ts",
         "packages/ui/src/lib/index.ts",
-        "packages/chat-db/src/index.ts"
+        "packages/chat-db/src/index.ts",
+        "packages/kv/src/index.ts"
       ],
       "linter": {
         "rules": {

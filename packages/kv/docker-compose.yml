@@ -1,0 +1,22 @@
+# Single-node Valkey for validating the Lua scripts in src/scripts.ts.
+#
+# Valkey rather than Redis: it is the fork the Linux Foundation took over after
+# Redis changed licence, it is wire-compatible, and it is what most managed
+# providers now run. ioredis cannot tell the difference. Swap the image for
+# `redis:8` and everything here still passes.
+#
+# Deliberately ephemeral -- no volume, no persistence. This is a script harness,
+# not a dev database, and `--save ''` keeps it from writing an RDB on shutdown.
+services:
+  valkey:
+    image: valkey/valkey:9.0-alpine
+    container_name: astro-valkey
+    command: ["valkey-server", "--save", "", "--appendonly", "no"]
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "valkey-cli", "ping"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+      start_period: 2s

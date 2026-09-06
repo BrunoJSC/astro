@@ -104,6 +104,9 @@
       },
       "chat": {
         "cassandra-driver": "^4.9.0"
+      },
+      "realtime": {
+        "ioredis": "^6.0.0"
       }
     }
   },

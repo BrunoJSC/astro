@@ -14,6 +14,7 @@ client.
 | `apps/desktop` | Tauri v2 desktop client (React + Vite) |
 | `packages/db` | Drizzle ORM on Neon: the relational graph |
 | `packages/chat-db` | ScyllaDB: message history, audit and moderation logs |
+| `packages/kv` | Redis/Valkey: presence, typing, voice state, pub/sub fan-out |
 | `packages/auth` | Better Auth: Argon2id, username plugin |
 | `packages/env` | T3 Env, validated per runtime |
 | `packages/ui` | Base UI primitives, shadcn-style variants |
@@ -72,6 +73,10 @@ bounded by its audience rather than by time. The seam is
 `channel_read_state.last_read_message_id`, which stores a Scylla `timeuuid` and
 is deliberately opaque to Postgres: UUIDv1 lays its timestamp out
 low-bits-first, so the unread comparison has to happen in Scylla.
+
+**The Lua in `packages/kv` has never run against a server.** Its TypeScript is
+tested; `packages/kv/README.md` says what that leaves open, and
+`bun run validate:kv` settles it.
 
 **The desktop app's Rust half has never been compiled.** Its frontend builds
 and typechecks; `cargo` was never available on the machine it was written on.
