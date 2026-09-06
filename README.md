@@ -11,7 +11,7 @@ client.
 | `apps/web` | Next.js 16, App Router, Tailwind v4 |
 | `apps/server` | Elysia API on Bun, plugin/module architecture |
 | `apps/native` | Expo SDK 57, Expo Router |
-| `apps/desktop` | Tauri shell (not started) |
+| `apps/desktop` | Tauri v2 desktop client (React + Vite) |
 | `packages/db` | Drizzle ORM on Neon: the relational graph |
 | `packages/chat-db` | ScyllaDB: message history, audit and moderation logs |
 | `packages/auth` | Better Auth: Argon2id, username plugin |
@@ -72,6 +72,10 @@ bounded by its audience rather than by time. The seam is
 `channel_read_state.last_read_message_id`, which stores a Scylla `timeuuid` and
 is deliberately opaque to Postgres: UUIDv1 lays its timestamp out
 low-bits-first, so the unread comparison has to happen in Scylla.
+
+**The desktop app's Rust half has never been compiled.** Its frontend builds
+and typechecks; `cargo` was never available on the machine it was written on.
+`apps/desktop/README.md` says what that leaves open.
 
 **The CQL has not run against a live ScyllaDB yet.** It was written on a
 machine without Docker, and Scylla is Linux-only so there was no way to apply

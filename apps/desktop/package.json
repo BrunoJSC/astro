@@ -1,0 +1,45 @@
+{
+  "name": "@repo/desktop",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Tauri v2 desktop client",
+  "type": "module",
+  "scripts": {
+    "build": "vite build",
+    "build:app": "tauri build",
+    "build:vite": "vite build",
+    "check-types": "tsc --noEmit",
+    "clean": "rm -rf .turbo dist node_modules src-tauri/target src-tauri/gen *.tsbuildinfo",
+    "dev": "tauri dev",
+    "dev:vite": "vite",
+    "preview": "vite preview",
+    "tauri": "tauri"
+  },
+  "dependencies": {
+    "@repo/auth": "workspace:*",
+    "@repo/env": "workspace:*",
+    "@repo/server": "workspace:*",
+    "@repo/ui": "workspace:*",
+    "@tanstack/react-query": "catalog:web",
+    "@tauri-apps/api": "catalog:desktop",
+    "@tauri-apps/plugin-deep-link": "catalog:desktop",
+    "@tauri-apps/plugin-shell": "catalog:desktop",
+    "better-auth": "catalog:auth",
+    "react": "catalog:",
+    "react-dom": "catalog:",
+    "zod": "catalog:",
+    "zustand": "catalog:"
+  },
+  "devDependencies": {
+    "@repo/config": "workspace:*",
+    "@tailwindcss/postcss": "catalog:ui",
+    "@tauri-apps/cli": "catalog:desktop",
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "@vitejs/plugin-react": "catalog:desktop",
+    "postcss": "catalog:ui",
+    "tailwindcss": "catalog:ui",
+    "typescript": "catalog:",
+    "vite": "catalog:desktop"
+  }
+}

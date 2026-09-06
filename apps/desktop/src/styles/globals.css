@@ -1,0 +1,39 @@
+/*
+ * The design system's tokens, variants and base layer. Everything the app
+ * styles with resolves from here -- see packages/ui/src/styles/globals.css.
+ */
+@import "@repo/ui/styles";
+
+/*
+ * Tailwind v4 scans only the paths it is told about. `@repo/ui` declares its
+ * own components; this app declares its own tree, or the classes written in
+ * these files never make it into the output.
+ */
+@source ".";
+
+/*
+ * A desktop window is not a web page: it should not rubber-band, and dragging
+ * a label should not start a text selection the way it does in a browser.
+ * Inputs and anything explicitly marked opt back in.
+ */
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+    overflow: hidden;
+  }
+
+  body {
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
+  input,
+  textarea,
+  [contenteditable="true"],
+  .selectable {
+    user-select: text;
+    -webkit-user-select: text;
+  }
+}

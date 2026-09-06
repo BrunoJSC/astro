@@ -1,0 +1,17 @@
+{
+  "extends": "@repo/config/react-library.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "declaration": false,
+    "declarationMap": false,
+    // `vite/client` is what types `import.meta.env`. It is scoped to this app
+    // deliberately: @repo/env is shared with Next and Expo, and pulling Vite's
+    // ambient declarations into that package would apply them everywhere.
+    "types": ["vite/client"],
+    "paths": {
+      "@/*": ["./src/*"]
+    }
+  },
+  "include": ["src", "vite.config.ts"],
+  "exclude": ["node_modules", "dist", ".turbo", "src-tauri"]
+}
