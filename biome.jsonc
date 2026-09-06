@@ -32,6 +32,12 @@
       "!**/schema/generated"
     ]
   },
+  "javascript": {
+    // Biome recognises browser and Node globals, not Bun's. `Bun.spawn`,
+    // `Bun.stdin` and `Bun.file` are the runtime here, and without this every
+    // use is reported as an undeclared variable.
+    "globals": ["Bun"]
+  },
   "formatter": {
     "enabled": true,
     "indentStyle": "space",
@@ -88,6 +94,21 @@
       // countdown to mean anything, and the concurrent case is a separate
       // assertion right below it. Parallelising here would delete the test.
       "includes": ["packages/kv/scripts/**"],
+      "linter": {
+        "rules": {
+          "performance": {
+            "noAwaitInLoops": "off"
+          }
+        }
+      }
+    },
+    {
+      // The validation hook runs lint, check-types, test and audit in order and
+      // stops reporting at the first blocking failure. In parallel they would
+      // be four turbo processes contending for one cache and one daemon, and
+      // the interleaved output would be unreadable -- which defeats a hook
+      // whose entire product is a legible error message.
+      "includes": [".claude/hooks/**"],
       "linter": {
         "rules": {
           "performance": {
