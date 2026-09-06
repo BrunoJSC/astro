@@ -1,0 +1,27 @@
+# Lefthook replaces husky + nano-staged in one binary: it owns the git hook
+# AND the staged-file filtering, so there is no second tool to keep in sync.
+# Install with `bun run prepare` (runs automatically after `bun install`).
+
+pre-commit:
+  parallel: true
+  jobs:
+    - name: biome
+      # {staged_files} is substituted by lefthook with the staged paths only.
+      # --no-errors-on-unmatched keeps the hook green when a commit touches
+      # nothing Biome handles (e.g. only .md or images).
+      glob: "*.{ts,tsx,js,jsx,json,jsonc,css}"
+      run: bunx biome check --write --no-errors-on-unmatched --files-ignore-unknown=true {staged_files}
+      stage_fixed: true
+
+    - name: check-types
+      glob: "*.{ts,tsx}"
+      run: bun run check-types
+
+pre-push:
+  parallel: true
+  jobs:
+    - name: test
+      run: bun run test
+
+    - name: security
+      run: bun run security:check

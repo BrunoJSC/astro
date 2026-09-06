@@ -1,0 +1,105 @@
+{
+  "$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
+  // Ultracite 7 ships oxlint/oxfmt by default; its Biome presets live under
+  // `ultracite/biome/*`. `core` is the base ruleset, `vitest` adds test-file
+  // rules (no focused/skipped tests, no assertions outside `it`).
+  "extends": ["ultracite/biome/core", "ultracite/biome/vitest"],
+  "root": true,
+  "vcs": {
+    "enabled": true,
+    "clientKind": "git",
+    "useIgnoreFile": true
+  },
+  "files": {
+    "includes": [
+      "!!**/node_modules",
+      "!!**/.turbo",
+      "!!**/.next",
+      "!!**/dist",
+      "!!**/build",
+      "!!**/out",
+      "!!**/coverage",
+      "!!**/drizzle",
+      "!!**/src-tauri/target",
+      "!!**/bun.lock",
+      // Biome's CSS parser does not know Tailwind v4's at-rules (@theme,
+      // @source, @custom-variant, @apply) and fails to parse these files.
+      // Parsing precedes linting, so an override cannot silence it -- the
+      // entry points have to be excluded outright. Tailwind itself validates
+      // them at build time.
+      "!**/globals.css",
+      // Kept byte-identical to what `auth:generate` emits, so that upgrading
+      // Better Auth produces a reviewable diff instead of a formatting one.
+      "!**/schema/generated"
+    ]
+  },
+  "formatter": {
+    "enabled": true,
+    "indentStyle": "space",
+    "indentWidth": 2,
+    "lineWidth": 80
+  },
+  "linter": {
+    "rules": {
+      "suspicious": {
+        /*
+         * Biome's type-aware rule, and it costs the entire lint budget.
+         *
+         * Measured: 75s on `apps/server/src/plugins/auth.ts` -- a 20-line file
+         * -- because the rule resolves types across the whole import graph,
+         * down into better-auth's and Elysia's declaration files. With it on,
+         * `bun run lint` takes ~100s; with it off, ~2s. It also runs in the
+         * pre-commit hook, so staging one of those files cost a minute-long
+         * commit.
+         *
+         * Against that: zero findings across all 108 files in the repo.
+         *
+         * Re-enable it per package if you want it somewhere that does not
+         * import a large SDK -- the cost is concentrated in the files that do.
+         */
+        "noUnnecessaryConditions": "off"
+      }
+    }
+  },
+  "assist": {
+    "actions": {
+      "source": {
+        "organizeImports": "on"
+      }
+    }
+  },
+  "overrides": [
+    {
+      // Drizzle requires the schema namespace object -- `drizzle(pool, { schema })`
+      // is what enables relational queries.
+      "includes": ["packages/db/**"],
+      "linter": {
+        "rules": {
+          "performance": {
+            "noNamespaceImport": "off"
+          }
+        }
+      }
+    },
+    {
+      // These barrels are the packages' declared public entry points (each one
+      // is named in its package.json `exports`), and `packages/db/src/schema`
+      // is the single file `drizzle.config.ts` reads. noBarrelFile targets
+      // incidental re-export hubs inside app code, not package boundaries.
+      "includes": [
+        "packages/db/src/index.ts",
+        "packages/db/src/schema/index.ts",
+        "packages/db/src/validation/index.ts",
+        "packages/ui/src/components/index.ts",
+        "packages/ui/src/lib/index.ts"
+      ],
+      "linter": {
+        "rules": {
+          "performance": {
+            "noBarrelFile": "off"
+          }
+        }
+      }
+    }
+  ]
+}
