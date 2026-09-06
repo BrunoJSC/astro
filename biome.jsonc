@@ -113,6 +113,21 @@
       }
     },
     {
+      // The whole module is the point: `mock.module` in Bun is process-global,
+      // so this file's mock of @repo/kv also applies to every other test file
+      // in the run. Spreading the real namespace over the overrides keeps the
+      // exports it does not stub -- notably `subscribeEvents`, which
+      // gateway-registry.test.ts needs -- instead of erasing them.
+      "includes": ["apps/server/tests/unit/gateway-handlers.test.ts"],
+      "linter": {
+        "rules": {
+          "performance": {
+            "noNamespaceImport": "off"
+          }
+        }
+      }
+    },
+    {
       // Drizzle requires the schema namespace object -- `drizzle(pool, { schema })`
       // is what enables relational queries.
       "includes": ["packages/db/**"],

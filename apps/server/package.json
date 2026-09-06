@@ -9,7 +9,9 @@
     "./type": "./src/type.ts",
     "./eden": "./src/eden.ts",
     "./plugins/query": "./src/plugins/query.ts",
-    "./plugins/auth": "./src/plugins/auth.ts"
+    "./plugins/auth": "./src/plugins/auth.ts",
+    "./plugins/kv": "./src/plugins/kv.ts",
+    "./gateway": "./src/modules/gateway/index.ts"
   },
   "scripts": {
     "bench": "bun run bench/index.ts",
@@ -29,6 +31,7 @@
     "@repo/auth": "workspace:*",
     "@repo/db": "workspace:*",
     "@repo/env": "workspace:*",
+    "@repo/kv": "workspace:*",
     "@tanstack/query-core": "catalog:api",
     "elysia": "catalog:api"
   },

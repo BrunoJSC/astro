@@ -93,6 +93,15 @@ export type GuildEvent = EventBase &
   (
     | { channelId: string; messageId: string; type: "message.created" }
     | { memberId: string; type: "member.joined" }
+    /*
+     * Presence, fanned out to the guilds a user belongs to.
+     *
+     * Carries the whole snapshot rather than just the id, so a member list can
+     * repaint from the event alone. Without it, every presence change in a
+     * busy guild would become one `getPresence` per receiving client -- a read
+     * storm proportional to members squared.
+     */
+    | { memberId: string; presence: Presence; type: "member.presence" }
     | { memberId: string; type: "member.left" }
     | { memberId: string; roleIds: readonly string[]; type: "member.roles" }
     | { roleId: string; type: "role.updated" }

@@ -91,6 +91,7 @@
         "@repo/auth": "workspace:*",
         "@repo/db": "workspace:*",
         "@repo/env": "workspace:*",
+        "@repo/kv": "workspace:*",
         "@tanstack/query-core": "catalog:api",
         "elysia": "catalog:api",
       },

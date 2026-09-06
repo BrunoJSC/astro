@@ -74,6 +74,12 @@ bounded by its audience rather than by time. The seam is
 is deliberately opaque to Postgres: UUIDv1 lays its timestamp out
 low-bits-first, so the unread comparison has to happen in Scylla.
 
+**The realtime gateway has never run.** `apps/server` now serves a WebSocket at
+`/gateway` for presence, typing, voice and cross-node fan-out; its unit tests
+pass but nothing has connected to a real Redis or browser. Proving it needs TWO
+server processes — with one node the `origin` filter is untestable, since every
+event is local. `apps/server/src/modules/gateway/README.md` has the steps.
+
 **The Lua in `packages/kv` has never run against a server.** Its TypeScript is
 tested; `packages/kv/README.md` says what that leaves open, and
 `bun run validate:kv` settles it.
