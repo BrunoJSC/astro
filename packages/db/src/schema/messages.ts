@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm";
 import {
   type AnyPgColumn,
+  boolean,
   check,
   index,
   pgTable,
@@ -57,6 +58,14 @@ export const messages = pgTable(
     editedAt: timestamp("edited_at", { withTimezone: true }),
     id: uuid("id").primaryKey().$defaultFn(newId).default(sql`uuidv7()`),
     /*
+     * A column on the hottest table, for a reason: `@everyone` has no role row
+     * to point at, so it cannot live in `message_role_mentions`, and the badge
+     * calculation needs it. A boolean fits in existing alignment padding here,
+     * so it costs nothing per row -- unlike the join a side table would add to
+     * every unread computation.
+     */
+    mentionsEveryone: boolean("mentions_everyone").notNull().default(false),
+    /*
      * Self-reference, `set null`: deleting the message someone replied to must
      * not delete the reply. The client renders the dangling case as "original
      * message was deleted".
@@ -68,10 +77,28 @@ export const messages = pgTable(
   },
   (table) => [
     /*
-     * THE index. Every channel read is "the newest N messages before a cursor",
-     * and this serves it as a backwards range scan with no sort step. Partial
-     * on `deleted_at IS NULL` so tombstones neither occupy it nor have to be
-     * filtered out afterwards.
+     * The pagination index: "the newest N messages before a cursor", as a
+     * backwards range scan with no sort step. Partial on `deleted_at IS NULL`
+     * so tombstones neither occupy it nor have to be filtered afterwards.
+     *
+     * MEASURED CAVEAT. The planner does not always choose it. With 785k rows
+     * across 61 channels, `WHERE channel_id = X ORDER BY id DESC LIMIT 50`
+     * picked `messages_pkey` and scanned backwards, discarding 472,000 rows to
+     * find 50 -- 88ms, against microseconds for the index. Its cost estimate
+     * for that plan was 229, because it assumes matching rows appear early in
+     * the scan.
+     *
+     * That assumption holds when a channel is busy: ids interleave across
+     * channels, so a backward scan hits the target every few rows. It breaks
+     * for a QUIET channel in a busy server -- scanning back from "now" then
+     * traverses everything newer. Neither `ORDER BY channel_id, id DESC` nor
+     * `CREATE STATISTICS (dependencies, mcv)` changed the choice; both were
+     * tried.
+     *
+     * The structural answer is partitioning `messages` by channel, which makes
+     * each partition's own scan channel-local. Drizzle cannot declare
+     * partitions, so that is a raw-SQL migration and a deliberate decision, not
+     * something to slip in here.
      */
     index("messages_channel_id_id_idx")
       .on(table.channelId, table.id.desc())

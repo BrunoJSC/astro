@@ -9,8 +9,10 @@ import { guildMembers } from "./guild-members";
 import { guilds } from "./guilds";
 import { invites } from "./invites";
 import { memberRoles } from "./member-roles";
+import { messageMentions, messageRoleMentions } from "./mentions";
 import { messages } from "./messages";
 import { messageReactions } from "./reactions";
+import { channelReadState } from "./read-state";
 import { roles } from "./roles";
 import { session } from "./sessions";
 import { user } from "./users";
@@ -32,8 +34,10 @@ export const userRelations = relations(user, ({ many }) => ({
   guildsOwned: many(guilds),
   invitesCreated: many(invites),
   memberships: many(guildMembers),
+  mentions: many(messageMentions),
   messages: many(messages),
   reactions: many(messageReactions),
+  readState: many(channelReadState),
   sessions: many(session),
 }));
 
@@ -97,6 +101,7 @@ export const invitesRelations = relations(invites, ({ one }) => ({
 export const rolesRelations = relations(roles, ({ many, one }) => ({
   guild: one(guilds, { fields: [roles.guildId], references: [guilds.id] }),
   members: many(memberRoles),
+  mentions: many(messageRoleMentions),
 }));
 
 export const memberRolesRelations = relations(memberRoles, ({ one }) => ({
@@ -121,6 +126,7 @@ export const channelsRelations = relations(channels, ({ many, one }) => ({
   guild: one(guilds, { fields: [channels.guildId], references: [guilds.id] }),
   messages: many(messages),
   overrides: many(channelPermissionOverrides),
+  readState: many(channelReadState),
 }));
 
 /**
@@ -149,6 +155,7 @@ export const messagesRelations = relations(messages, ({ many, one }) => ({
     fields: [messages.channelId],
     references: [channels.id],
   }),
+  mentions: many(messageMentions),
   reactions: many(messageReactions),
   replies: many(messages, { relationName: "message_reply" }),
   replyTo: one(messages, {
@@ -156,6 +163,7 @@ export const messagesRelations = relations(messages, ({ many, one }) => ({
     references: [messages.id],
     relationName: "message_reply",
   }),
+  roleMentions: many(messageRoleMentions),
 }));
 
 export const attachmentsRelations = relations(attachments, ({ one }) => ({
@@ -194,3 +202,45 @@ export const guildEmojisRelations = relations(guildEmojis, ({ many, one }) => ({
   }),
   reactions: many(messageReactions),
 }));
+
+export const channelReadStateRelations = relations(
+  channelReadState,
+  ({ one }) => ({
+    channel: one(channels, {
+      fields: [channelReadState.channelId],
+      references: [channels.id],
+    }),
+    user: one(user, {
+      fields: [channelReadState.userId],
+      references: [user.id],
+    }),
+  })
+);
+
+export const messageMentionsRelations = relations(
+  messageMentions,
+  ({ one }) => ({
+    message: one(messages, {
+      fields: [messageMentions.messageId],
+      references: [messages.id],
+    }),
+    user: one(user, {
+      fields: [messageMentions.userId],
+      references: [user.id],
+    }),
+  })
+);
+
+export const messageRoleMentionsRelations = relations(
+  messageRoleMentions,
+  ({ one }) => ({
+    message: one(messages, {
+      fields: [messageRoleMentions.messageId],
+      references: [messages.id],
+    }),
+    role: one(roles, {
+      fields: [messageRoleMentions.roleId],
+      references: [roles.id],
+    }),
+  })
+);

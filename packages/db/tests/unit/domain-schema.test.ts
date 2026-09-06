@@ -1,5 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import { getTableColumns, getTableName } from "drizzle-orm";
+import { getTableConfig } from "drizzle-orm/pg-core";
 import { canonicalPair } from "../../src/schema/friends";
 import * as schema from "../../src/schema/index";
 
@@ -107,5 +108,36 @@ describe("reactions", () => {
     const columns = getTableColumns(schema.messageReactions);
     expect(columns.emoji.notNull).toBe(false);
     expect(columns.customEmojiId.notNull).toBe(false);
+  });
+});
+
+describe("read state and mentions", () => {
+  it("keeps lastReadMessageId free of a foreign key", () => {
+    /*
+     * It is a watermark, not a reference. A foreign key with `set null` would
+     * reset the position when a single message is purged, marking the whole
+     * channel unread. UUIDv7 ordering keeps the value meaningful after the row
+     * it names is gone.
+     */
+    const fks = getTableConfig(schema.channelReadState).foreignKeys;
+    const referenced = fks.flatMap((fk) =>
+      fk.reference().columns.map((c) => c.name)
+    );
+    expect(referenced).not.toContain("last_read_message_id");
+  });
+
+  it("stores role mentions unexpanded", () => {
+    // One row per member of a mentioned role would mean fifty thousand rows for
+    // one message, rewritten whenever membership changes.
+    const columns = Object.keys(
+      getTableColumns(schema.messageRoleMentions)
+    ).sort();
+    expect(columns).toEqual(["messageId", "roleId"]);
+  });
+
+  it("puts @everyone on the message, since it has no role to point at", () => {
+    expect(getTableColumns(schema.messages).mentionsEveryone.notNull).toBe(
+      true
+    );
   });
 });
