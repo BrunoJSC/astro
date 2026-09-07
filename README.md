@@ -113,6 +113,16 @@ engine it maintains CQL compatibility with stood in. `bun run validate:cql`
 points the same suite at real Scylla, which is still worth doing —
 Scylla-specific behaviour is not covered.
 
+**The environment schemas are run, and checked against the files that document
+them.** `packages/env/tests/integration/` imports each entry point with a
+controlled environment — a fresh module instance per case, because every schema
+validates at module scope and that is the whole contract. It also reads all six
+`.env.example` files and holds them to the schemas: every documented key must
+exist, every required key must be documented, no app's public prefix may appear
+in another's file, and no example may carry a real host, a real-looking
+password, or a `BETTER_AUTH_SECRET` that would actually pass validation. All six
+of those are verified by mutation.
+
 **The desktop app's main and preload bundles are executed.** Electron 44 needs
 macOS 13+ and this machine is 12, so no window opens — but
 `apps/desktop/tests/e2e/` builds the app and then RUNS those two bundles with

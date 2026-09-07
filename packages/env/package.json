@@ -14,7 +14,9 @@
   },
   "scripts": {
     "check-types": "tsc --noEmit",
-    "clean": "rm -rf .turbo node_modules *.tsbuildinfo"
+    "clean": "rm -rf .turbo node_modules *.tsbuildinfo",
+    "test": "bun run test:integration",
+    "test:integration": "bun test tests/integration"
   },
   "dependencies": {
     "@t3-oss/env-core": "catalog:env",

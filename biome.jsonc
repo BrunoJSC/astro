@@ -101,7 +101,12 @@
       // is. Neither has anything to parallelise.
       "includes": [
         "packages/kv/tests/integration/**",
-        "apps/server/tests/e2e/harness.ts"
+        "apps/server/tests/e2e/harness.ts",
+        // Each case in @repo/env's suite mutates process.env, imports one
+        // entry point, and restores it. process.env is process-wide, so two
+        // cases in flight at once read each other's variables -- the loop is
+        // sequential by necessity, not by oversight.
+        "packages/env/tests/integration/**"
       ],
       "linter": {
         "rules": {
