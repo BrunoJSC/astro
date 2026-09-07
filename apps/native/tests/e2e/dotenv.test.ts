@@ -1,5 +1,5 @@
 import { afterAll, describe, expect, it } from "bun:test";
-import { existsSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { NATIVE, runExport, SENTINEL } from "./helpers";
 
@@ -20,25 +20,46 @@ import { NATIVE, runExport, SENTINEL } from "./helpers";
 /**
  * `.env.development` is loaded for the mode `env-preload` passes, and is the
  * least likely of Expo's candidates to be a file a developer already keeps.
- * The suite refuses to touch one that exists rather than overwrite it.
  */
 const DOTENV = join(NATIVE, ".env.development");
-const preexisting = existsSync(DOTENV);
 
-if (preexisting) {
+/**
+ * Exactly what this test writes, defined once so the file can be recognised
+ * again. The value is the suite's own sentinel for a second reason -- see the
+ * comment on the write below.
+ */
+const CONTENTS = `EXPO_PUBLIC_API_URL=${SENTINEL.apiUrl}\n`;
+
+/**
+ * Whether the file on disk belongs to somebody else.
+ *
+ * Not merely "does it exist". A run killed before its `afterAll` leaves this
+ * file behind, and a bare existence check then skips this test on every later
+ * run -- silently, forever, which is the failure this whole suite exists to
+ * catch. Found exactly that way: a session ended mid-run and the next full
+ * `turbo run test` reported `[native/dotenv] skipped` as though that were
+ * normal.
+ *
+ * Matching on the contents distinguishes the two cases. Residue this test
+ * wrote is its own to reuse; anything else is a developer's file and is left
+ * alone.
+ */
+const foreign = existsSync(DOTENV) && readFileSync(DOTENV, "utf8") !== CONTENTS;
+
+if (foreign) {
   process.stderr.write(
-    `\n[native/dotenv] skipped: ${DOTENV} already exists.\n` +
+    `\n[native/dotenv] skipped: ${DOTENV} exists and is not ours.\n` +
       "  The test writes that file; it will not overwrite yours.\n\n",
   );
 }
 
 afterAll(() => {
-  if (!preexisting) {
+  if (!foreign) {
     rmSync(DOTENV, { force: true });
   }
 });
 
-describe.skipIf(preexisting)("loading .env before the schema runs", () => {
+describe.skipIf(foreign)("loading .env before the schema runs", () => {
   it("exports with the value in a dotenv file and nothing in the environment", async () => {
     /*
      * The measurement this file is named after. With `env-preload.ts` in
@@ -66,7 +87,7 @@ describe.skipIf(preexisting)("loading .env before the schema runs", () => {
      * and rebuilding is not enough; the cache has to be cleared
      * (`expo export --clear`) or the old value ships.
      */
-    writeFileSync(DOTENV, `EXPO_PUBLIC_API_URL=${SENTINEL.apiUrl}\n`);
+    writeFileSync(DOTENV, CONTENTS);
 
     const result = await runExport({
       EXPO_PUBLIC_API_URL: null,
