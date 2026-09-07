@@ -400,8 +400,17 @@ rendered into `.next/server/app/<route>.html` — the file every visitor
 downloads. T3 Env's guard is `typeof window`, and during a prerender a Client
 Component runs on the *server*, so the guard sees a server and hands the value
 over. It never reaches a JS chunk, so a leak check that searched only
-`.next/static` would report success. Adding the `server-only` package to
-`packages/env/src/server.ts` would make it a build error; that is not done yet.
+`.next/static` would report success.
+
+`@repo/env`'s `exports` map now sends the `browser` and `react-native`
+conditions to a module that throws, which keeps the server schema out of the
+Electron renderer and the React Native bundle entirely — measured with a
+forbidden import in each. **It does not close the Next path**, and no export map
+can: a Client Component's SSR pass resolves `default`, the same condition Bun,
+drizzle-kit and `next.config.ts` need. `server-only` is silent only under the
+`react-server` condition and throws under Bun, so putting it in the shared
+entry point would take the API and the migrations down with it — measured. That
+one leak stays caught after the fact, by `apps/web/tests/e2e/bundle.test.ts`.
 
 **A session token could not travel as a WebSocket subprotocol.** Better Auth
 issues padded base64, which ends in `=`; a subprotocol is an RFC 7230 `token`,

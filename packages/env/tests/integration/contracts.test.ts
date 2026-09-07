@@ -14,6 +14,8 @@ import { loadSchemas, type Schemas } from "./helpers";
  */
 
 const ROOT = join(import.meta.dir, "../../../..");
+/** This package's own root, for the exports map and the guard module. */
+const ENV = join(import.meta.dir, "../..");
 
 let schemas: Schemas;
 /** Declared by this package, in any entry point. */
@@ -261,5 +263,56 @@ describe("the example files carry placeholders, never secrets", () => {
         `${example.path}: BETTER_AUTH_SECRET must read as a placeholder`
       ).toBe(true);
     }
+  });
+});
+
+describe("the server entry is unreachable from a client bundle", () => {
+  const manifest = JSON.parse(
+    readFileSync(join(ENV, "package.json"), "utf8")
+  ) as { exports: Record<string, unknown> };
+
+  it("maps the browser and react-native conditions away from the schema", () => {
+    /*
+     * The guard, and the exact shape of it matters.
+     *
+     * `server-only` is the obvious answer and does not work here: it is silent
+     * only under the `react-server` condition, and under Bun or plain Node it
+     * throws on import -- measured. `apps/server`, `packages/auth`,
+     * `drizzle.config.ts` and `apps/web/next.config.ts` all import this entry
+     * outside that condition, so it would take the API, the migrations and the
+     * web build down with it.
+     *
+     * Export conditions do the job for the bundlers that set one. Measured
+     * with a forbidden import in each app: Metro and Vite both resolve the
+     * guard and keep `CORS_ORIGINS` -- a key unique to the server schema --
+     * out of the bundle entirely.
+     */
+    const server = manifest.exports["./server"] as Record<string, string>;
+
+    expect(server.browser).toBe("./src/server-browser.ts");
+    expect(server["react-native"]).toBe("./src/server-browser.ts");
+    // Bun, Node, drizzle-kit and next.config.ts all arrive through `default`
+    // and must still get the real schema.
+    expect(server.default).toBe("./src/server.ts");
+  });
+
+  it("does not pretend to cover Next's prerender path", () => {
+    /*
+     * Written down because the gap is invisible and this file is where someone
+     * would look for it.
+     *
+     * A Next Client Component is compiled twice: once for the browser, where
+     * the guard fires, and once for the SSR pass that produces the prerendered
+     * HTML -- and that pass resolves `default`, the same condition Bun and
+     * drizzle-kit need. No export map can tell the two apart, so the leak into
+     * `.next/server/app/<route>.html` is caught by
+     * `apps/web/tests/e2e/bundle.test.ts` after the fact rather than prevented
+     * here. Measured: with these conditions in place, that build still
+     * succeeds and still leaks.
+     */
+    const guard = readFileSync(join(ENV, "src/server-browser.ts"), "utf8");
+
+    expect(guard).toContain("throw new Error");
+    expect(guard).toContain("react-server");
   });
 });

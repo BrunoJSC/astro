@@ -6,7 +6,11 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./server": "./src/server.ts",
+    "./server": {
+      "react-native": "./src/server-browser.ts",
+      "browser": "./src/server-browser.ts",
+      "default": "./src/server.ts"
+    },
     "./client": "./src/client.ts",
     "./shared": "./src/shared.ts",
     "./native": "./src/native.ts",
