@@ -486,7 +486,10 @@ type-checked is worse than saying nothing — it removes the reason to check.
   is no media layer.
 
 [SETUP-WINDOWS.md](SETUP-WINDOWS.md) has an ordered list of what to verify
-first, and why that order.
+first, and why that order. [ROADMAP.md](ROADMAP.md) has what the project needs
+next, in dependency order — starting with the fact that the write path does not
+exist yet: `@repo/chat-db` is imported by nothing, and twelve of the fourteen
+Postgres tables have no consumer.
 
 ---
 
