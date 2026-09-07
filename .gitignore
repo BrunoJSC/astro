@@ -170,3 +170,7 @@ packages/ui/src/styles/globals.mutant.css
 
 # Fixtures written and removed by packages/config/tests/integration.
 packages/config/.fixtures/
+
+# Installed by `skills add` for Cursor. `.claude/skills/` is versioned beside
+# the rest of `.claude/`; this copy is per-developer tooling for another editor.
+.agents/
