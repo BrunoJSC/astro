@@ -304,11 +304,16 @@ describe("the server entry is unreachable from a client bundle", () => {
      * A Next Client Component is compiled twice: once for the browser, where
      * the guard fires, and once for the SSR pass that produces the prerendered
      * HTML -- and that pass resolves `default`, the same condition Bun and
-     * drizzle-kit need. No export map can tell the two apart, so the leak into
-     * `.next/server/app/<route>.html` is caught by
-     * `apps/web/tests/e2e/bundle.test.ts` after the fact rather than prevented
-     * here. Measured: with these conditions in place, that build still
-     * succeeds and still leaks.
+     * drizzle-kit need. No export map can tell the two apart. Measured: with
+     * these conditions in place, importing THIS entry from a Client Component
+     * still builds and still leaks.
+     *
+     * Next is covered by a different mechanism, in the app rather than here:
+     * `apps/web/lib/env.ts` carries `import "server-only"`, which Next treats
+     * as a compiler marker, so a Client Component reaching it is a build
+     * error. That marker cannot live in this package -- outside Next the npm
+     * package really executes and throws, and `apps/server`, `packages/auth`
+     * and `drizzle.config.ts` all import this entry from there.
      */
     const guard = readFileSync(join(ENV, "src/server-browser.ts"), "utf8");
 

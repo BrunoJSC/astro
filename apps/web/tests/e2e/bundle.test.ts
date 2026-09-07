@@ -1,10 +1,14 @@
-import { beforeAll, describe, expect, it } from "bun:test";
+import { afterAll, beforeAll, describe, expect, it } from "bun:test";
+import { mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 import {
   browserReachable,
   buildOnce,
   prerendered,
+  runBuild,
   SENTINEL,
   stylesheet,
+  WEB,
 } from "./helpers";
 
 /**
@@ -173,4 +177,74 @@ describe("the design system survives the build", () => {
     expect(html).toContain("Page not found");
     expect(html).toContain('href="/"');
   });
+});
+
+describe("the server environment cannot be reached from a Client Component", () => {
+  /*
+   * Two builds, and the contrast between them is the point.
+   *
+   * `apps/web/lib/env.ts` carries `import "server-only"`, which Next treats as
+   * a compiler marker rather than as a module -- "Next.js handles server-only
+   * imports internally. The contents of these packages from NPM are not
+   * used." A Client Component reaching it is a build error.
+   *
+   * The unguarded `@repo/env/server` is still importable and still leaks, and
+   * that is not an oversight: `next.config.ts` and `instrumentation.ts` need
+   * it, they run outside any client graph, and no export condition can tell
+   * their case from a Client Component's SSR pass -- both resolve `default`.
+   * `apps/web/biome.jsonc` is what keeps app code off it; this file records
+   * why that rule has to exist.
+   */
+
+  /*
+   * These two cases rebuild `.next` with an extra route in it, so they run
+   * last on purpose -- `build.test.ts` asserts the exact prerendered route
+   * list and would fail on the leftovers. Alphabetical file order puts it
+   * first, and every run starts with `buildOnce()` rebuilding clean, so the
+   * pollution never survives into another file or another run. Verified by
+   * running the suite twice back to back.
+   */
+  const PROBE_DIR = join(WEB, "app/leak-probe");
+
+  function writeProbe(from: string): void {
+    mkdirSync(PROBE_DIR, { recursive: true });
+    writeFileSync(
+      join(PROBE_DIR, "page.tsx"),
+      `"use client";\nimport { env } from "${from}";\n` +
+        "export default function LeakProbe() {\n" +
+        "  return <p>{env.BETTER_AUTH_SECRET}</p>;\n}\n",
+    );
+  }
+
+  afterAll(() => {
+    rmSync(PROBE_DIR, { force: true, recursive: true });
+  });
+
+  it("fails the build when it goes through the guarded entry", async () => {
+    writeProbe("@/lib/env");
+
+    const build = await runBuild();
+
+    expect(build.exitCode).not.toBe(0);
+    expect(build.output).toContain("server-only");
+  }, 600_000);
+
+  it("still compiles and still leaks through the unguarded one", async () => {
+    /*
+     * Asserted in the direction that documents the gap rather than hides it.
+     * If this ever starts failing, Next has gained a way to tell the two
+     * compilations apart and the lint rule can go.
+     */
+    writeProbe("@repo/env/server");
+
+    const build = await runBuild();
+    expect(build.exitCode).toBe(0);
+
+    const leaked = browserReachable()
+      .filter((asset) => asset.text.includes(SENTINEL.secret))
+      .map((asset) => asset.path);
+
+    expect(leaked.length).toBeGreaterThan(0);
+    expect(leaked.every((path) => path.endsWith(".html"))).toBe(true);
+  }, 600_000);
 });

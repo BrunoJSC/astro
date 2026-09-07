@@ -16,5 +16,40 @@
   // The Tailwind entry point is excluded here too: a nested `includes`
   // replaces the inherited one rather than merging with it, so the root
   // config's exclusion does not carry down.
-  "files": { "includes": ["**", "!**/globals.css"] }
+  "files": { "includes": ["**", "!**/globals.css"] },
+  // Paths here are relative to THIS file, not to the repository root -- a
+  // nested config re-resolves inherited ones against its own directory, which
+  // is the same trap the `files.includes` comment above exists for. The same
+  // override placed in the root config silently matched nothing.
+  "overrides": [
+    {
+      // The app's component graph, and only that. `next.config.ts` and
+      // `instrumentation.ts` are deliberately outside this scope: they run in
+      // the build's and the boot's Node process, never in a client graph, and
+      // are the legitimate consumers of the unguarded entry.
+      //
+      // Measured with a `"use client"` probe in each shape: importing
+      // `@/lib/env` fails the build with "You're importing a module that
+      // depends on server-only"; importing `@repo/env/server` builds fine and
+      // writes BETTER_AUTH_SECRET into `.next/server/app/<route>.html`. This
+      // rule is what stands between those two outcomes.
+      "includes": ["app/**", "components/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "paths": {
+                  "@repo/env/server": {
+                    "message": "Import @/lib/env instead. It carries `server-only`, so a Client Component that reaches it fails the build rather than printing DATABASE_URL into the prerendered HTML."
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
 }

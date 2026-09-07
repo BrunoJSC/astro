@@ -402,15 +402,24 @@ Component runs on the *server*, so the guard sees a server and hands the value
 over. It never reaches a JS chunk, so a leak check that searched only
 `.next/static` would report success.
 
-`@repo/env`'s `exports` map now sends the `browser` and `react-native`
-conditions to a module that throws, which keeps the server schema out of the
-Electron renderer and the React Native bundle entirely — measured with a
-forbidden import in each. **It does not close the Next path**, and no export map
-can: a Client Component's SSR pass resolves `default`, the same condition Bun,
-drizzle-kit and `next.config.ts` need. `server-only` is silent only under the
-`react-server` condition and throws under Bun, so putting it in the shared
-entry point would take the API and the migrations down with it — measured. That
-one leak stays caught after the fact, by `apps/web/tests/e2e/bundle.test.ts`.
+Closed in three layers, because no single one covers every bundler.
+
+`@repo/env`'s `exports` map sends the `browser` and `react-native` conditions to
+a module that throws, keeping the server schema out of the Electron renderer and
+the React Native bundle entirely — measured with a forbidden import in each. It
+cannot close the Next path, and no export map can: a Client Component's SSR pass
+resolves `default`, the same condition Bun, drizzle-kit and `next.config.ts`
+need.
+
+For Next, `apps/web/lib/env.ts` carries `import "server-only"`. Next treats that
+as a compiler marker rather than a module — *"the contents of these packages
+from NPM are not used"* — so a Client Component reaching it is a **build
+error**, measured. The marker cannot live in `@repo/env`: outside Next the npm
+package really executes and throws, which would take the API and the migrations
+down with it. `apps/web/biome.jsonc` forbids the unguarded import under `app/**`
+and `components/**` so the guarded entry is not merely available but required,
+and `apps/web/tests/e2e/bundle.test.ts` builds both shapes and asserts the
+contrast: one fails, the other still leaks.
 
 **A session token could not travel as a WebSocket subprotocol.** Better Auth
 issues padded base64, which ends in `=`; a subprotocol is an RFC 7230 `token`,
