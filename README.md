@@ -113,6 +113,17 @@ engine it maintains CQL compatibility with stood in. `bun run validate:cql`
 points the same suite at real Scylla, which is still worth doing —
 Scylla-specific behaviour is not covered.
 
+**The TypeScript presets are compiled, not read.** `packages/config` is five
+JSON files and no code, which makes it look untestable and makes it the
+opposite: a preset has no behaviour until `tsc` reads it.
+`packages/config/tests/integration/` runs the real compiler — `--showConfig`
+for the resolved options, so `extends` is applied by the thing that owns those
+rules, and real compiles of real fixtures for the behaviour. `noUnusedLocals`
+really is a compile error (TS6133), `verbatimModuleSyntax` really refuses a
+value import used only as a type (TS1484), and every package that extends a
+preset really still has `strict` on — a package can override anything locally,
+and nothing else would catch it.
+
 **The environment schemas are run, and checked against the files that document
 them.** `packages/env/tests/integration/` imports each entry point with a
 controlled environment — a fresh module instance per case, because every schema

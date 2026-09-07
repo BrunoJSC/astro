@@ -1,0 +1,10 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "extends": "../base.json",
+  "compilerOptions": {
+    "incremental": false,
+    "noEmit": true,
+    "types": ["bun"]
+  },
+  "include": ["**/*.ts"]
+}

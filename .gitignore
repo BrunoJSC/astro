@@ -167,3 +167,6 @@ Thumbs.db
 
 # Written and removed by packages/ui/tests/e2e/styles.test.ts.
 packages/ui/src/styles/globals.mutant.css
+
+# Fixtures written and removed by packages/config/tests/integration.
+packages/config/.fixtures/
