@@ -4,14 +4,16 @@
   "private": true,
   "main": "expo-router/entry",
   "scripts": {
-    "dev": "expo start",
     "android": "expo start --android",
-    "ios": "expo start --ios",
-    "web": "expo start --web",
-    "prebuild": "expo prebuild",
+    "check-types": "tsc --noEmit && tsc --noEmit -p tests/tsconfig.json",
+    "clean": "rm -rf .turbo .expo node_modules *.tsbuildinfo",
+    "dev": "expo start",
     "doctor": "expo-doctor",
-    "check-types": "tsc --noEmit",
-    "clean": "rm -rf .turbo .expo node_modules *.tsbuildinfo"
+    "ios": "expo start --ios",
+    "prebuild": "expo prebuild",
+    "test": "bun run test:e2e",
+    "test:e2e": "bun test tests/e2e",
+    "web": "expo start --web"
   },
   "dependencies": {
     "@better-auth/expo": "catalog:native",
@@ -40,6 +42,7 @@
   },
   "devDependencies": {
     "@repo/config": "workspace:*",
+    "@types/bun": "catalog:",
     "@types/react": "catalog:",
     "typescript": "catalog:"
   }

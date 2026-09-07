@@ -113,6 +113,27 @@ engine it maintains CQL compatibility with stood in. `bun run validate:cql`
 points the same suite at real Scylla, which is still worth doing —
 Scylla-specific behaviour is not covered.
 
+**The Expo app bundles, and the bundle is read.** `apps/native/tests/e2e/`
+runs `expo export` — no simulator, no Xcode, no Android SDK — and then reads
+what Metro produced: `EXPO_PUBLIC_API_URL` inlined as a literal, no server
+secret and no `argon2`/`drizzle` anywhere near a React Native bundle, the
+session in SecureStore rather than AsyncStorage, and both router screens
+present. `expo config` covers the other half: the store identifiers, the
+plugin list, and that `expo.scheme` still matches the scheme the auth client
+redirects OAuth back to — a two-file invariant whose failure is a sign-in that
+silently never returns to the app.
+
+**`bun install` needed a fix before any of that could run.** The Expo CLI
+failed outright with `Yallist is not a constructor`:
+`@babel/helper-compilation-targets` gets its own copy of `lru-cache@5`, which
+wants `yallist@^3`, and Bun places that copy without a nested `yallist` — so it
+resolves the hoisted `yallist@5`, whose export is not a constructor. Every
+`expo` command died on it, which is why nothing in this app had ever been run.
+Bun's `overrides` are flat and its nested `resolutions` are ignored, so the fix
+is the root `yallist@3.1.1` devDependency: a direct dependency wins the hoist,
+and `tar` — the only package that actually wants v5 — gets its own nested copy.
+Remove it and the Expo CLI stops working.
+
 **The web app builds, and what it ships is checked.** `apps/web/tests/e2e/`
 runs `next build` for real and then reads the output: the routes prerender
 static, the workspace packages compile, the design system's tokens reach the
