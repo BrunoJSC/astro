@@ -12,7 +12,8 @@
     "clean": "rm -rf .turbo dist out node_modules *.tsbuildinfo",
     "dev": "electron-vite dev",
     "preview": "electron-vite preview",
-    "test": "bun test tests/unit",
+    "test": "bun run test:unit && bun run test:e2e",
+    "test:e2e": "bun test tests/e2e",
     "test:unit": "bun test tests/unit"
   },
   "dependencies": {

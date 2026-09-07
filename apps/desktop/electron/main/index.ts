@@ -12,8 +12,26 @@ import { registerCredentialHandlers } from "./credentials";
  * could change.
  */
 
-/** The API origin, needed for the CSP and for the navigation allowlist. */
-const API_URL = process.env.VITE_API_URL ?? "http://localhost:3001";
+/**
+ * The API origin, needed for the CSP and for the navigation allowlist.
+ *
+ * Both sources, in this order, and the second one is the one that matters in
+ * production.
+ *
+ * `import.meta.env` is the syntax Vite substitutes at build time; `process.env`
+ * it leaves alone. Reading only `process.env` therefore compiled nothing in,
+ * and a packaged app -- launched from Finder or Explorer with no shell
+ * environment at all -- fell back to localhost. The CSP is built from this
+ * value, so every installed build blocked the real API and the gateway socket,
+ * while `bun run dev` inherited the developer's shell and looked correct.
+ *
+ * `process.env` stays first so a build can still be pointed at staging without
+ * rebuilding. Pinned by `tests/e2e/main.test.ts`, which asserts both branches.
+ */
+const API_URL =
+  process.env.VITE_API_URL ??
+  import.meta.env.VITE_API_URL ??
+  "http://localhost:3001";
 
 /** Where the renderer legitimately lives. Everything else is external. */
 const DEV_SERVER = process.env.ELECTRON_RENDERER_URL;

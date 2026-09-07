@@ -113,6 +113,16 @@ engine it maintains CQL compatibility with stood in. `bun run validate:cql`
 points the same suite at real Scylla, which is still worth doing —
 Scylla-specific behaviour is not covered.
 
+**The desktop app's main and preload bundles are executed.** Electron 44 needs
+macOS 13+ and this machine is 12, so no window opens — but
+`apps/desktop/tests/e2e/` builds the app and then RUNS those two bundles with
+the `electron` module replaced by a fake, so what it asserts is the arguments
+the shipped code passes to Electron rather than the text it was written with:
+`sandbox`/`contextIsolation`/`nodeIntegration` read off the object given to
+`BrowserWindow`, `openExternal` refusing `file://`, `smb://`, `javascript:` and
+`ms-msdt:`, `will-navigate` calling `preventDefault`, and the CSP captured from
+the session hook. It found a bug that only appears once packaged — see below.
+
 **The Expo app bundles, and the bundle is read.** `apps/native/tests/e2e/`
 runs `expo export` — no simulator, no Xcode, no Android SDK — and then reads
 what Metro produced: `EXPO_PUBLIC_API_URL` inlined as a literal, no server
@@ -141,6 +151,17 @@ stylesheet, and `next start` answers `/` with 200 and an unknown path with a
 real 404. The assertion worth having is the leak check — it searches the
 prerendered HTML as well as the JS chunks, because that is where a server value
 actually lands.
+
+**A packaged desktop build pointed its CSP at localhost.** The main process
+reads the API origin to build `connect-src`, and it read it from `process.env`
+— which Vite does not substitute. Only `import.meta.env` is compiled in. A
+packaged app is launched from Finder or Explorer with no shell environment, so
+every installed build fell back to `http://localhost:3001` and would have
+blocked the real API and the gateway socket, while `bun run dev` inherited the
+developer's shell and looked correct throughout. Fixed by reading both, in that
+order. The `envPrefix` line that looks like the fix is not: electron-vite's
+default prefix list already contains `VITE_`, measured by deleting it from both
+configs and seeing no change in the output.
 
 **A Client Component can read server env, and the build will not stop it.**
 Measured while writing that leak check: a `"use client"` file importing

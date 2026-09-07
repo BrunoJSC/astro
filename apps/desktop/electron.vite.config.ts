@@ -66,9 +66,14 @@ export default defineConfig({
       target: "chrome130",
     },
     /*
-     * electron-vite defaults to `RENDERER_VITE_`. Pinned to `VITE_` so the
-     * renderer keeps reading the same variables as any other Vite app, and
-     * `@repo/env/desktop` stays the single description of them.
+     * Redundant, and kept as documentation rather than as configuration.
+     *
+     * electron-vite's default prefix list already contains `VITE_` alongside
+     * the scoped `MAIN_VITE_` / `PRELOAD_VITE_` / `RENDERER_VITE_` -- measured
+     * by deleting this line from both configs, which changed no output. What
+     * matters is which SYNTAX the source uses: Vite substitutes
+     * `import.meta.env.*` and leaves `process.env.*` alone, which is what
+     * broke the CSP in packaged builds. See `electron/main/index.ts`.
      */
     envPrefix: "VITE_",
     plugins: [react()],
