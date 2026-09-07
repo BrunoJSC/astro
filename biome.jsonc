@@ -101,6 +101,10 @@
       // is. Neither has anything to parallelise.
       "includes": [
         "packages/kv/tests/integration/**",
+        // `waitFor` in the unit suite's fake client: polling for a condition
+        // is what polling is, and it replaced three fixed sleeps that failed
+        // under load.
+        "packages/kv/tests/unit/fake-client.ts",
         "apps/server/tests/e2e/harness.ts",
         // Each case in @repo/env's suite mutates process.env, imports one
         // entry point, and restores it. process.env is process-wide, so two

@@ -56,13 +56,30 @@ const SUBPROTOCOL_TOKEN = /^[!#$%&'*+\-.^_`|~0-9A-Za-z]+$/;
 
 const ARGON2ID_PARAMS = ["$argon2id$", "v=19", "m=19456", "t=2", "p=1"];
 
+/**
+ * For the hooks that do real setup work.
+ *
+ * Generous rather than tuned: it is not measuring anything, it is only there
+ * so a slow machine fails the assertion it was going to fail anyway instead of
+ * failing the hook. Every hook below also signs a user up, and argon2id is
+ * deliberately expensive.
+ */
+const SETUP_TIMEOUT_MS = 120_000;
+
 describe.skipIf(!available)("sign up", () => {
   let auth: Loaded["auth"];
   let database: Loaded["db"];
 
+  /*
+   * An explicit timeout, because the default five seconds is a bet on the
+   * machine. This hook starts the WebSocket tunnel, creates the database if it
+   * is absent and applies @repo/db's whole migration; measured at 5,830ms
+   * during a parallel `turbo run test`, where it timed out and -- since turbo
+   * SIGINTs the sibling tasks -- was reported as three other packages failing.
+   */
   beforeAll(async () => {
     ({ auth, db: database } = await loadAuth());
-  });
+  }, SETUP_TIMEOUT_MS);
 
   it("creates the user and the credential account", async () => {
     const email = newEmail();
@@ -134,7 +151,7 @@ describe.skipIf(!available)("sign in", () => {
     await auth.api.signUpEmail({
       body: { email, name: "Ana", password: PASSWORD },
     });
-  });
+  }, SETUP_TIMEOUT_MS);
 
   it("accepts the right password", async () => {
     const response = await auth.api.signInEmail({
@@ -211,7 +228,7 @@ describe.skipIf(!available)("bearer tokens", () => {
     await auth.api.signUpEmail({
       body: { email, name: "Ana", password: PASSWORD },
     });
-  });
+  }, SETUP_TIMEOUT_MS);
 
   it("returns a token on sign-in", async () => {
     /*

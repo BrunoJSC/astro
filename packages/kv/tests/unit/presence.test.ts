@@ -7,7 +7,7 @@ import {
   startHeartbeat,
   touchPresence,
 } from "../../src/presence";
-import { fakeClient, only } from "./fake-client";
+import { fakeClient, only, waitFor } from "./fake-client";
 
 const USER = "01931f4c-8d2a-7000-8000-000000000001";
 const SOCKET = "socket-a";
@@ -166,7 +166,20 @@ describe("startHeartbeat", () => {
       userId: USER,
     });
 
-    await new Promise((resolve) => setTimeout(resolve, 35));
+    /*
+     * Waited for, not slept through. A fixed 35ms wait for two beats of a 10ms
+     * timer assumes the timer is not delayed, and a loaded machine delays both
+     * the timer and the wait -- this failed with one beat where it wanted two.
+     *
+     * The timeout is what keeps the test honest: a heartbeat that never fired,
+     * or fired once and stopped, still fails here.
+     */
+    await waitFor(
+      () =>
+        only(calls, "presenceTouch").length >= 2 &&
+        only(calls, "presenceReap").length >= 2,
+      { what: "two beats" }
+    );
     await handle.stop();
 
     expect(only(calls, "presenceTouch").length).toBeGreaterThanOrEqual(2);
@@ -199,7 +212,7 @@ describe("startHeartbeat", () => {
       userId: USER,
     });
 
-    await new Promise((resolve) => setTimeout(resolve, 25));
+    await waitFor(() => errors.length > 0, { what: "a reported beat failure" });
     await handle.stop();
 
     expect(errors.length).toBeGreaterThan(0);

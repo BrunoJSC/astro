@@ -72,3 +72,34 @@ export function fakeClient(replies: Record<string, unknown> = {}): {
 
 export const only = (calls: Call[], name: string): Call[] =>
   calls.filter((call) => call.name === name);
+
+/**
+ * Waits until `condition` holds, rather than for a length of time.
+ *
+ * The three timer tests in this suite used to sleep for a fixed number of
+ * milliseconds and then assert how many beats had happened -- 35ms for two
+ * beats of a 10ms heartbeat, say. That is a bet on the machine, and it is one
+ * the machine loses under load: measured, `beats on the interval` failed with
+ * one beat where it wanted two, and because turbo SIGINTs the sibling tasks
+ * when one fails, it took three other packages down with it and reported them
+ * as the failures.
+ *
+ * Polling for the condition costs the same when things are fast, cannot fail
+ * when they are slow, and still fails -- on the timeout -- when the behaviour
+ * is actually missing.
+ */
+export async function waitFor(
+  condition: () => boolean,
+  { timeoutMs = 5000, what = "condition" } = {}
+): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+
+  while (Date.now() < deadline) {
+    if (condition()) {
+      return;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 1));
+  }
+
+  throw new Error(`${what} did not hold within ${timeoutMs}ms`);
+}

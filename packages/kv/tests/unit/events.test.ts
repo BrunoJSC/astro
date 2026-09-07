@@ -3,7 +3,7 @@ import { EventEmitter } from "node:events";
 import type { Redis } from "ioredis";
 import { publishEvent, subscribeEvents } from "../../src/events";
 import type { GuildEvent } from "../../src/types";
-import { fakeClient, only } from "./fake-client";
+import { fakeClient, only, waitFor } from "./fake-client";
 
 const GUILD = "01931f4c-8d2a-7000-8000-000000000003";
 
@@ -180,7 +180,12 @@ describe("subscribeEvents", () => {
     );
 
     deliver(`events:guild:{${GUILD}}`, JSON.stringify(event));
-    await new Promise((resolve) => setTimeout(resolve, 5));
+    // The handler rejects asynchronously, so the error arrives a turn or more
+    // later. Waited for rather than slept through, for the same reason as the
+    // heartbeat tests: 5ms is a bet, and the condition is not.
+    await waitFor(() => errors.length > 0, {
+      what: "the reported handler error",
+    });
 
     expect(errors).toHaveLength(1);
   });

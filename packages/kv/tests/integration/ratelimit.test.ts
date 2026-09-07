@@ -57,19 +57,56 @@ describe.skipIf(!available)("rate limiting", () => {
   });
 
   it("reports when the window frees a slot, not a fixed backoff", async () => {
+    /*
+     * The bounds are MEASURED, not written down, and that is a fix rather than
+     * a flourish. This test used to assert `retryAfterMs > 500` after a 300ms
+     * sleep, which silently assumed the three round trips around it cost under
+     * 200ms. Under a loaded machine they do not: it failed in CI-like
+     * conditions with 453, and took the whole `turbo run test` down with it --
+     * turbo SIGINTs the sibling tasks, so three other packages reported
+     * exit 130 and the real failure was two screens up.
+     *
+     * `retryAfterMs` is `(oldestScore + window) - now`, and both halves come
+     * from the CLIENT's clock -- `takeMessageSlot` passes `Date.now()` as
+     * ARGV[1], the Lua never calls TIME. So this process can bracket it
+     * exactly, with no tolerance to tune and nothing left to load.
+     */
     const userId = newId();
-    const options = { limit: 2, windowMs: WINDOW };
+    /*
+     * A long window on purpose. The setup needs BOTH entries still inside it
+     * when the third take runs; with a 1s window a stall between them ages the
+     * first one out, the take is allowed, and the test fails for a reason that
+     * has nothing to do with what it checks.
+     */
+    const options = { limit: 2, windowMs: 4000 };
 
+    const beforeFirst = Date.now();
     await takeMessageSlot(kv, userId, options);
+    const afterFirst = Date.now();
+
     await sleep(300);
     await takeMessageSlot(kv, userId, options);
 
+    const beforeDenied = Date.now();
     const denied = await takeMessageSlot(kv, userId, options);
+    const afterDenied = Date.now();
 
-    // Derived from the oldest surviving entry: ~700ms left of its window, not
-    // a whole window and not a constant.
-    expect(denied.retryAfterMs).toBeGreaterThan(500);
-    expect(denied.retryAfterMs).toBeLessThanOrEqual(WINDOW);
+    expect(denied.allowed).toBe(false);
+
+    /*
+     * The oldest entry's score is somewhere in [beforeFirst, afterFirst], and
+     * the denied call's `now` somewhere in [beforeDenied, afterDenied]. The
+     * extremes of those two intervals bracket the answer.
+     */
+    const atMost = options.windowMs - (beforeDenied - afterFirst);
+    const atLeast = options.windowMs - (afterDenied - beforeFirst);
+
+    expect(denied.retryAfterMs).toBeLessThanOrEqual(atMost);
+    expect(denied.retryAfterMs).toBeGreaterThanOrEqual(atLeast);
+
+    // And the point of the test: a whole window would mean a fixed backoff.
+    // The sleep guarantees the upper bound is strictly below one.
+    expect(denied.retryAfterMs).toBeLessThan(options.windowMs);
   });
 
   it("slides rather than resetting on a boundary", async () => {
@@ -138,13 +175,21 @@ describe.skipIf(!available)("rate limiting", () => {
   });
 
   it("expires the window key rather than keeping it forever", async () => {
+    /*
+     * A long window here for the same reason as above, in the opposite
+     * direction: with a 1s one, a stall between the write and the read expires
+     * the key, `pttl` answers -2, and the test fails claiming there is no TTL
+     * when what it actually saw was the TTL working.
+     */
+    const windowMs = 60_000;
     const userId = newId();
-    await takeMessageSlot(kv, userId, { limit: 5, windowMs: WINDOW });
+    await takeMessageSlot(kv, userId, { limit: 5, windowMs });
 
     const ttl = await kv.pttl(rateLimitKey(userId));
 
+    // -1 is "no expiry" and -2 is "no such key"; both are what this rejects.
     expect(ttl).toBeGreaterThan(0);
-    expect(ttl).toBeLessThanOrEqual(WINDOW);
+    expect(ttl).toBeLessThanOrEqual(windowMs);
   });
 
   it("peeks without spending", async () => {
