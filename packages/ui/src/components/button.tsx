@@ -1,4 +1,4 @@
-import { Button as BaseButton } from "@base-ui-components/react/button";
+import { Button as BaseButton } from "@base-ui/react/button";
 import { cva, type VariantProps } from "class-variance-authority";
 import type { ComponentProps } from "react";
 import { cn } from "../lib/cn";
@@ -20,6 +20,18 @@ export const buttonVariants = cva(
       size: {
         default: "h-9 px-4 py-2 has-[>svg]:px-3",
         icon: "size-9",
+        /*
+         * The two square sizes below exist for the components brought in from
+         * the shadcn registry -- `dialog`'s close button, `attachment`'s
+         * remove control and `message-scroller`'s jump-to-latest all ask for
+         * them by name, and `check-types` is what surfaced that.
+         *
+         * Sized to the scale already here rather than to the registry's own:
+         * `icon-sm` matches `sm`'s h-8 and `icon-xs` is one step below, so a
+         * row mixing a small button and a small icon button lines up.
+         */
+        "icon-sm": "size-8",
+        "icon-xs": "size-7",
         lg: "h-10 rounded-md px-6 has-[>svg]:px-4",
         sm: "h-8 gap-1.5 rounded-md px-3 has-[>svg]:px-2.5",
       },

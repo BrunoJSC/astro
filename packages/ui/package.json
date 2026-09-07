@@ -14,6 +14,10 @@
     "./styles": "./src/styles/globals.css",
     "./tailwind.config": "./tailwind.config.ts"
   },
+  "imports": {
+    "#components/*": "./src/components/*.tsx",
+    "#lib/*": "./src/lib/*.ts"
+  },
   "scripts": {
     "check-types": "tsc --noEmit",
     "clean": "rm -rf .turbo node_modules coverage *.tsbuildinfo",
@@ -22,9 +26,13 @@
     "test:unit": "bun test tests/unit"
   },
   "dependencies": {
-    "@base-ui-components/react": "catalog:ui",
+    "@base-ui/react": "catalog:ui",
+    "@shadcn/react": "catalog:ui",
     "class-variance-authority": "catalog:ui",
     "clsx": "catalog:ui",
+    "cmdk": "catalog:ui",
+    "cn": "^0.2.6",
+    "lucide-react": "catalog:ui",
     "tailwind-merge": "catalog:ui"
   },
   "devDependencies": {
