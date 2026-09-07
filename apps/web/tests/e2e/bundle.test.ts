@@ -19,6 +19,11 @@ import {
  * emitted output instead of trusting the rule.
  */
 
+/** A token resolved to a hex literal, e.g. `--primary:#171717`. */
+const TOKEN_AS_HEX = /--primary:\s*#[0-9a-f]{3,8}/i;
+/** The same token left as a bare oklch value -- the no-fallback case. */
+const TOKEN_AS_OKLCH = /--primary:\s*oklch\(\s*[.\d]/i;
+
 describe("nothing server-side reaches the browser", () => {
   let assets: { path: string; text: string }[];
 
@@ -96,31 +101,44 @@ describe("the design system survives the build", () => {
     expect(css).toContain("--background");
   });
 
-  it("downlevels the oklch palette, which the source never says", () => {
+  it("downlevels the oklch PALETTE, which the source never says", () => {
     /*
      * Measured, and contrary to what reading `packages/ui` suggests.
      *
      * That file's palette is oklch throughout and its own test asserts so. The
-     * production stylesheet contains NO `oklch(` at all: each token comes out
-     * as a hex value plus a wider-gamut `lab()` behind an `@supports` guard.
-     * Both definitions are the same colour and the browser takes whichever it
-     * understands.
+     * tokens come out of a production build as a hex value plus a wider-gamut
+     * `lab()` behind an `@supports` guard -- both the same colour, and the
+     * browser takes whichever it understands.
      *
      * Turbopack's own CSS pipeline does this, not `experimental.optimizeCss` --
-     * removing that option leaves the output unchanged, measured. So it happens
-     * on every production build here and cannot be configured away by dropping
-     * an experiment.
-     *
-     * Worth pinning in this direction. A future change that made oklch survive
-     * to production would drop the fallback with it, and the failure mode is a
-     * palette that renders as nothing on an older browser -- unstyled, not
-     * merely off-shade.
+     * removing that option leaves the output unchanged, measured.
      */
     const css = stylesheet();
 
-    expect(css).not.toContain("oklch(");
-    expect(css).toMatch(/--primary:\s*#[0-9a-f]{3,8}/i);
+    expect(css).toMatch(TOKEN_AS_HEX);
     expect(css).toContain("lab(");
+    // No token may be left as a bare oklch value: that is the case with no
+    // fallback at all.
+    expect(css).not.toMatch(TOKEN_AS_OKLCH);
+  });
+
+  it("does ship relative colour syntax, which cannot be downlevelled", () => {
+    /*
+     * `oklch(from var(--primary) .93 calc(c * .4) h)` -- the Bubble component
+     * derives its tint from the primary token at render time. There is no
+     * static value for Lightning CSS to precompute, so it survives the build
+     * whole, and it arrived with the shadcn registry components rather than
+     * from anything written here.
+     *
+     * Asserted rather than removed, because it is a real browser-support
+     * decision and this is where it becomes visible. Relative colour syntax
+     * needs Chrome 119+ or Safari 16.4+; `apps/desktop` bundles its own
+     * Chromium so it is unconditional there, and on the web an older browser
+     * drops the background rather than falling back to one.
+     */
+    const css = stylesheet();
+
+    expect(css).toContain("oklch(from var(--primary)");
   });
 
   it("emits the utilities the app's own files use, not just the package's", () => {

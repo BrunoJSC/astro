@@ -10,5 +10,53 @@
   // The Tailwind entry point is excluded here too: a nested `includes`
   // replaces the inherited one rather than merging with it, so the root
   // config's exclusion does not carry down.
-  "files": { "includes": ["**", "!**/globals.css"] }
+  "files": { "includes": ["**", "!**/globals.css"] },
+  // Paths are relative to THIS file: a nested config re-resolves inherited
+  // ones against its own directory.
+  "overrides": [
+    {
+      /*
+       * The components brought in from the shadcn registry, and only those --
+       * `button.tsx` is hand-written and stays held to the repository's
+       * standard, which it meets.
+       *
+       * These files are vendored: `shadcn add` regenerates them, so a hand
+       * fix is undone by the next run and the diff against upstream is a cost
+       * paid forever. The four rules below are upstream's own style, not
+       * defects introduced here:
+       *
+       *   noLeakedRender      `{cond && <X/>}` where cond could be 0 or "".
+       *   noDoubleEquals      `x?.length == 1`, deliberately loose on null.
+       *   noArrayIndexKey     a list with no stable id to key on.
+       *   useSemanticElements `role=` where the element cannot be swapped.
+       *   noLabelWithoutControl  a reusable Label cannot know its control;
+       *                          associating them is the caller's job.
+       *   useKeyWithClickEvents  a click target whose keyboard handling the
+       *                          Base UI primitive underneath already owns.
+       *
+       * Anything written by hand in this package is linted normally. If one of
+       * these files stops being regenerated and starts being maintained here,
+       * take it out of this list rather than widening the list.
+       */
+      "includes": [
+        "src/components/**",
+        "!src/components/button.tsx",
+        "!src/components/index.ts"
+      ],
+      "linter": {
+        "rules": {
+          "a11y": {
+            "noLabelWithoutControl": "off",
+            "useKeyWithClickEvents": "off",
+            "useSemanticElements": "off"
+          },
+          "suspicious": {
+            "noArrayIndexKey": "off",
+            "noDoubleEquals": "off",
+            "noLeakedRender": "off"
+          }
+        }
+      }
+    }
+  ]
 }
